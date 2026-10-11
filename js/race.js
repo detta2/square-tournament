@@ -45,12 +45,28 @@ class Race {
       x: tileCX(this.ax, ftx), y: tileCY(this.ay, fty),
       r: 22, cd: 2.0, recoil: 0, aimA: 0, name: 'INFERNO'
     };
+    // menara kedua di semifinal/final — ditaruh di tile api cadangan (sisi berlawanan)
+    this.fireBoss2 = null;
+    if (/SEMIFINAL|FINAL/.test(label || '')) {
+      let bx = -1, by = -1, bd = -1;
+      for (let y = 1; y < TR - 1; y++) for (let x = 1; x < TC - 1; x++) {
+        if (this.maze.grid[y * TC + x] !== 0) continue;
+        const wx = tileCX(this.ax, x), wy = tileCY(this.ay, y);
+        const d = Math.hypot(wx - this.fireBoss.x, wy - this.fireBoss.y);
+        if (d > bd) { bd = d; bx = x; by = y; }
+      }
+      if (bx >= 0) this.fireBoss2 = {
+        x: tileCX(this.ax, bx), y: tileCY(this.ay, by),
+        r: 22, cd: 2.6, recoil: 0, aimA: 0, name: 'INFERNO II'
+      };
+    }
 
-    // --- boss penghancur: patroli bolak-balik di lintasan sprint (baris 9) ---
+    // --- boss penghancur: BERBURU pembalap terdekat (bukan patroli pasif) ---
     this.crusher = {
       x: this.ax + 3 * TILE, y: this.ay + 9 * TILE + TILE / 2,
-      vx: 150, r: 34, wob: 0, name: 'GARGANT',
-      minX: this.ax + 1.2 * TILE, maxX: this.ax + 13.8 * TILE
+      vx: 150, vy: 0, r: 34, wob: 0, name: 'GARGANT',
+      minX: this.ax + 1.2 * TILE, maxX: this.ax + 13.8 * TILE,
+      mode: 'hunt', modeT: 7   // siklus: berburu 7 dtk -> tidur 3.5 dtk (jendela aman)
     };
 
     this.fireballs = [];
@@ -317,18 +333,25 @@ class Race {
 
   /* ---- boss api ---- */
   _updateFireBoss(dt) {
-    const b = this.fireBoss;
+    this._updateOneTower(this.fireBoss, dt);
+    if (this.fireBoss2) this._updateOneTower(this.fireBoss2, dt);
+  }
+  _updateOneTower(b, dt) {
     b.cd -= dt; b.recoil = Math.max(0, b.recoil - dt * 4);
-    // bidik yg terdekat dalam jangkauan
-    let tgt = null, td = 460;
+    // bidik yg terdekat dalam jangkauan, dgn PREDIKSI gerakan (aim ke depan target)
+    let tgt = null, td = 560;
     for (const u of this.units) {
       if (!u.alive) continue;
       const d = Math.hypot(u.x - b.x, u.y - b.y);
       if (d < td) { td = d; tgt = u; }
     }
-    if (tgt) b.aimA = Math.atan2(tgt.y - b.y, tgt.x - b.x);
+    if (tgt) {
+      const lead = Math.min(0.9, td / 330);   // waktu tempuh bola api
+      const px = tgt.x + tgt.vx * lead, py = tgt.y + tgt.vy * lead;
+      b.aimA = Math.atan2(py - b.y, px - b.x);
+    }
     if (b.cd <= 0 && tgt) {
-      b.cd = this.units.length > 2 ? 2.0 : 2.8;
+      b.cd = this.units.length > 2 ? 1.1 : 1.6;   // jauh lebih galak dari 2.0/2.8
       b.recoil = 1;
       this.fireballs.push({
         x: b.x + Math.cos(b.aimA) * 26, y: b.y + Math.sin(b.aimA) * 26,
@@ -341,7 +364,7 @@ class Race {
   }
 
   _updateFireballs(dt) {
-    const SPD = 275, TURN = 4.2;
+    const SPD = 330, TURN = 5.2;
     for (let i = this.fireballs.length - 1; i >= 0; i--) {
       const f = this.fireballs[i];
       f.life -= dt;
@@ -385,15 +408,86 @@ class Race {
     }
   }
 
-  /* ---- boss penghancur: patroli baris 9 ---- */
+  /* ---- boss penghancur: BERBURU pembalap terdekat via pathfinding ---- */
+  _bfsFrom(tx, ty) {
+    // peta jarak dari tile target; -1 = dinding/tak terjangkau
+    const W = TC, H = TR, g = this.maze.grid;
+    const dist = new Int16Array(W * H).fill(-1);
+    if (tx < 0 || ty < 0 || tx >= W || ty >= H) return dist;
+    let sid = ty * W + tx;
+    if (g[sid] !== 0) {  // target di dinding -> cari tile jalan terdekat
+      let found = -1;
+      for (let r = 1; r < 4 && found < 0; r++)
+        for (let y = Math.max(0, ty - r); y <= Math.min(H - 1, ty + r) && found < 0; y++)
+          for (let x = Math.max(0, tx - r); x <= Math.min(W - 1, tx + r); x++)
+            if (g[y * W + x] === 0) { found = y * W + x; break; }
+      if (found < 0) return dist;
+      sid = found;
+    }
+    const q = [sid]; dist[sid] = 0;
+    let head = 0;
+    while (head < q.length) {
+      const id = q[head++], x = id % W, y = (id / W) | 0, nd = dist[id] + 1;
+      if (x + 1 < W) { const n = id + 1; if (dist[n] < 0 && g[n] === 0) { dist[n] = nd; q.push(n); } }
+      if (x - 1 >= 0) { const n = id - 1; if (dist[n] < 0 && g[n] === 0) { dist[n] = nd; q.push(n); } }
+      if (y + 1 < H) { const n = id + W; if (dist[n] < 0 && g[n] === 0) { dist[n] = nd; q.push(n); } }
+      if (y - 1 >= 0) { const n = id - W; if (dist[n] < 0 && g[n] === 0) { dist[n] = nd; q.push(n); } }
+    }
+    return dist;
+  }
   _updateCrusher(dt) {
     const c = this.crusher;
     c.wob += dt;
-    c.x += c.vx * dt;
-    if (c.x < c.minX) { c.x = c.minX; c.vx = Math.abs(c.vx); }
-    if (c.x > c.maxX) { c.x = c.maxX; c.vx = -Math.abs(c.vx); }
+    // siklus berburu/tidur — saat tidur dia harmless (jendela aman buat pembalap)
+    c.modeT -= dt;
+    if (c.modeT <= 0) {
+      if (c.mode === 'hunt') { c.mode = 'sleep'; c.modeT = 3.5; }
+      else { c.mode = 'hunt'; c.modeT = 7; }
+    }
+    const hunting = c.mode === 'hunt';
+    // target: pembalap hidup terdekat
+    let tgt = null, td = 1e9;
     for (const u of this.units) {
       if (!u.alive) continue;
+      const d = Math.hypot(u.x - c.x, u.y - c.y);
+      if (d < td) { td = d; tgt = u; }
+    }
+    // hitung ulang peta jarak ke target tiap 0.5 dtk
+    c.repath = (c.repath || 0) - dt;
+    if (tgt && hunting && c.repath <= 0) {
+      c.repath = 0.5;
+      const ex = Math.max(0, Math.min(TC - 1, Math.floor((tgt.x - this.ax) / TILE)));
+      const ey = Math.max(0, Math.min(TR - 1, Math.floor((tgt.y - this.ay) / TILE)));
+      c.flow = this._bfsFrom(ex, ey);
+    }
+    // gerak menuruni gradien peta (mendekati target lewat labirin)
+    const HUNT = hunting ? 175 : 0;
+    let dx = 0, dy = 0;
+    if (tgt && hunting && c.flow) {
+      const W = TC, g = this.maze.grid;
+      const cx = Math.max(0, Math.min(W - 1, Math.floor((c.x - this.ax) / TILE)));
+      const cy = Math.max(0, Math.min(TR - 1, Math.floor((c.y - this.ay) / TILE)));
+      const cur = c.flow[cy * W + cx];
+      let bx = 0, by = 0, bd = cur;
+      const nb = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+      for (let k = 0; k < 4; k++) {
+        const nx = cx + nb[k][0], ny = cy + nb[k][1];
+        if (nx < 0 || ny < 0 || nx >= W || ny >= TR) continue;
+        const nid = ny * W + nx, dd = c.flow[nid];
+        if (g[nid] === 0 && dd >= 0 && (bd < 0 || dd < bd)) { bd = dd; bx = nb[k][0]; by = nb[k][1]; }
+      }
+      if (bd >= 0 && bd < cur) {
+        dx = tileCX(this.ax, cx + bx) - c.x; dy = tileCY(this.ay, cy + by) - c.y;
+      } else { dx = tgt.x - c.x; dy = tgt.y - c.y; }
+    } else if (tgt) { dx = tgt.x - c.x; dy = tgt.y - c.y; }
+    const d = Math.hypot(dx, dy) || 1;
+    const k = Math.min(1, 3.2 * dt);
+    c.vx += ((dx / d) * HUNT - c.vx) * k;
+    c.vy += ((dy / d) * HUNT - c.vy) * k;
+    c.x += c.vx * dt; c.y += c.vy * dt;
+    this._collideTiles(c);   // mentok dinding, tidak tembus labirin
+    for (const u of this.units) {
+      if (!u.alive || !hunting) continue;   // saat tidur: harmless, bisa dilewati
       const dx = u.x - c.x, dy = u.y - c.y, rr = u.r + c.r;
       if (dx * dx + dy * dy < rr * rr) {
         if (this._aliveCount() > 1) {
@@ -677,7 +771,10 @@ class Race {
   }
 
   _drawFireBoss(c, t) {
-    const b = this.fireBoss;
+    this._drawOneTower(c, t, this.fireBoss, 0);
+    if (this.fireBoss2) this._drawOneTower(c, t + 2.1, this.fireBoss2, 1);
+  }
+  _drawOneTower(c, t, b, idx) {
     const x = Math.round(b.x), y = Math.round(b.y + Math.sin(t * 2.2) * 3);
     const s = 44;
     c.fillStyle = 'rgba(0,0,0,.3)';
@@ -701,8 +798,9 @@ class Race {
     c.fillRect(x - 16, y - 16, 14, 5); c.fillRect(x + 2, y - 16, 14, 5); // alis miring
     // label
     c.font = 'bold 9px monospace'; c.textAlign = 'center';
-    c.fillStyle = '#000'; c.fillText('INFERNO', x + 1, y - s / 2 - 7);
-    c.fillStyle = '#ff9a5e'; c.fillText('INFERNO', x, y - s / 2 - 8);
+    const nm = b.name;
+    c.fillStyle = '#000'; c.fillText(nm, x + 1, y - s / 2 - 7);
+    c.fillStyle = '#ff9a5e'; c.fillText(nm, x, y - s / 2 - 8);
     void mx; void my;
   }
 
@@ -728,8 +826,16 @@ class Race {
     for (let i = 0; i < 5; i++) c.fillRect(-22 + i * 10, 12, 7, i % 2 ? 12 : 8);
     c.restore();
     c.font = 'bold 10px monospace'; c.textAlign = 'center';
-    c.fillStyle = '#000'; c.fillText('GARGANT', x + 1, y - s / 2 - 9);
-    c.fillStyle = '#d6ffb0'; c.fillText('GARGANT', x, y - s / 2 - 10);
+    const glabel = k.mode === 'hunt' ? 'GARGANT' : 'GARGANT 💤';
+    c.fillStyle = '#000'; c.fillText(glabel, x + 1, y - s / 2 - 9);
+    c.fillStyle = k.mode === 'hunt' ? '#d6ffb0' : '#9db8d6'; c.fillText(glabel, x, y - s / 2 - 10);
+    if (k.mode !== 'hunt') {
+      // gelembung "Z" saat tidur
+      const zb = Math.sin(t * 3) * 4;
+      c.font = 'bold 14px monospace';
+      c.fillStyle = '#cfe3ff'; c.fillText('Z', x + 30, y - 30 + zb);
+      c.fillStyle = '#8fb4dd'; c.fillText('Z', x + 42, y - 44 - zb);
+    }
   }
 
   _rr(c, x, y, w, h, r) {
