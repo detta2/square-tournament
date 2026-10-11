@@ -93,7 +93,7 @@ body{
 }
 @keyframes pop{from{transform:scale(.4); opacity:0;}to{transform:scale(1); opacity:1;}}
 
-/* ---------- BRACKET ---------- */
+/* ---------- BRACKET (gaya referensi: pohon WHO WILL WIN?) ---------- */
 .overlay{
   position:absolute; inset:0; z-index:3; overflow:auto;
   background:rgba(10,7,20,.92);
@@ -101,7 +101,14 @@ body{
   padding:24px; gap:18px;
 }
 .overlay.hidden{display:none;}
-#bracket-title, #champ-title{
+/* bracket pakai panel krem ala referensi */
+#bracket{ background:#f3e9d2; justify-content:flex-start; }
+#bracket-title{
+  font-family:'Press Start 2P',monospace; font-size:clamp(18px,3vw,32px);
+  color:#2b2118; text-shadow:3px 3px 0 rgba(0,0,0,.15);
+  align-self:flex-start; margin-bottom:6px;
+}
+#champ-title{
   font-family:'Press Start 2P',monospace; font-size:clamp(26px,4.5vw,52px);
   color:var(--yellow); text-align:center; line-height:1.5;
   text-shadow:4px 4px 0 #7a4d00, 7px 7px 0 #000;
@@ -115,50 +122,54 @@ body{
 }
 #next-tag.hidden{display:none;}
 @keyframes blinkTag{50%{opacity:.55;}}
-#bracket-grid{
-  display:flex; gap:26px; align-items:stretch; justify-content:center;
-  flex-wrap:nowrap; max-width:100%;
+
+/* pohon bracket */
+#bracket-grid{ max-width:100%; overflow-x:auto; padding:10px 6px 20px; }
+.btree{ display:flex; flex-direction:column; align-items:center; min-width:560px; }
+.blvl{ display:flex; gap:30px; position:relative; padding-top:30px; }
+.blvl.lvl1{ padding-top:0; }
+.conn-h{ position:absolute; top:0; height:30px; border-top:5px solid #3a2f23; left:55px; right:55px; }
+.bnode{ position:relative; width:110px; display:flex; flex-direction:column; align-items:center; gap:6px; }
+.bnode::before{
+  content:''; position:absolute; top:-30px; left:50%; width:5px; height:30px;
+  background:#3a2f23; transform:translateX(-50%);
 }
-.bcol{
-  display:flex; flex-direction:column; gap:10px; align-items:center;
-  background:var(--panel); border:3px solid #000; border-radius:10px;
-  padding:14px 12px; min-width:132px;
-  box-shadow:inset -4px -4px 0 rgba(0,0,0,.3), 0 6px 0 #000;
+.blvl.lvl1 .bnode::before{ display:none; }
+.blvl.lvl1 .bnode::after{
+  content:''; position:absolute; bottom:-30px; left:50%; width:5px; height:30px;
+  background:#3a2f23; transform:translateX(-50%);
 }
-.bcol h3{
-  font-family:'Press Start 2P',monospace; font-size:11px; color:var(--purple);
-  text-shadow:2px 2px 0 #000; margin-bottom:4px;
+.bslot{
+  width:64px; height:64px; display:flex; align-items:center; justify-content:center;
+  background:#fffdf6; border:4px solid #3a2f23; border-radius:8px;
+  box-shadow:3px 3px 0 rgba(0,0,0,.25);
+  font-family:'Press Start 2P',monospace; font-size:18px; color:#b9a888;
 }
-.bcol.finalcol h3{color:var(--yellow);}
-.bcol.champcol h3{color:#ffd700;}
-.chips{display:flex; flex-direction:column; gap:8px;}
-.chip{
-  display:flex; align-items:center; gap:8px;
-  background:#141021; border:2px solid #000; border-radius:6px; padding:6px 8px;
-  font-size:12px; font-weight:bold; letter-spacing:1px;
-  box-shadow:inset -2px -2px 0 rgba(0,0,0,.4);
-  --c:#fff;
+.blvl.lvl1 .bslot{ width:80px; height:80px; border-color:#b8860b; background:#fffbe8; }
+.bslot .q{ color:#c9b98f; }
+.bq{
+  width:52px; height:52px; background:var(--c); border:3px solid #3a2f23; border-radius:6px;
+  box-shadow:inset -6px -6px 0 rgba(0,0,0,.22); position:relative;
+  animation:winPop .5s cubic-bezier(.2,2.4,.4,1);
 }
-.chip .sq{
-  width:20px; height:20px; flex:0 0 20px; background:var(--c);
-  border:2px solid #000; border-radius:3px;
-  box-shadow:inset -3px -3px 0 rgba(0,0,0,.25);
+.blvl.lvl1 .bq{ width:66px; height:66px; }
+.bq .face::before, .bq .face::after{
+  content:''; position:absolute; top:30%; width:22%; height:26%;
+  background:#fff; border:2px solid #1c1c22; border-radius:2px;
 }
-.chip .nm{color:#fff; text-shadow:1px 1px 0 #000;}
-.wslot{
-  min-width:118px; min-height:38px; display:flex; align-items:center; justify-content:center;
-  border:3px dashed #5b4a8a; border-radius:8px; color:#5b4a8a;
-  font-family:'Press Start 2P',monospace; font-size:12px; padding:4px;
+.bq .face::before{ left:20%; } .bq .face::after{ right:20%; }
+.bq.sm{ width:24px; height:24px; border-width:2px; border-radius:4px; animation:none; }
+.bq.sm .face::before, .bq.sm .face::after{ border-width:1px; }
+.bnm{
+  font-family:'Press Start 2P',monospace; font-size:9px; color:#2b2118;
+  text-shadow:1px 1px 0 rgba(255,255,255,.6);
 }
-.wslot .chip{border-color:var(--yellow); animation:winPop .5s cubic-bezier(.2,2.4,.4,1);}
+.blab{
+  font-family:'Press Start 2P',monospace; font-size:8px; color:#6b5c42;
+  letter-spacing:1px; text-align:center;
+}
+.bmem{ display:flex; gap:5px; }
 @keyframes winPop{from{transform:scale(.3) rotate(-8deg); opacity:0;}to{transform:scale(1) rotate(0); opacity:1;}}
-.match{display:flex; flex-direction:column; gap:8px; align-items:center;}
-.match + .match{margin-top:10px;}
-.vs{
-  font-family:'Press Start 2P',monospace; font-size:10px; color:#ff5fa2;
-  text-shadow:2px 2px 0 #000;
-}
-.bcol .arrow{font-size:20px; color:#5b4a8a; line-height:1;}
 
 /* champion */
 #champ-star{

@@ -23,6 +23,26 @@ class Race {
     const channels = racers.length <= 2 ? [5, 9] : [1, 5, 9, 13];
     this.maze = genMazeSafe(channels);
 
+    // --- FLOOD GATE: gerbang terkunci di tiap saluran start; terbuka saat meteran penuh ---
+    this.gateMode = opts.gate !== undefined ? opts.gate : Math.random() < 0.35;
+    this.gateTiles = [];
+    this.gate = null;
+    if (this.gateMode) {
+      for (const c of channels) {
+        let gr = 2;
+        while (gr < TR - 1 && this.maze.grid[gr * TC + c] !== 0) gr++;
+        if (gr < TR - 1 && this.maze.grid[gr * TC + c] === 0) {
+          this.maze.grid[gr * TC + c] = 2;
+          this.gateTiles.push(gr * TC + c);
+        }
+      }
+      if (this.gateTiles.length > 0) {
+        let maxR = 0;
+        for (const t of this.gateTiles) maxR = Math.max(maxR, (t / TC) | 0);
+        this.gate = { fill: 0, open: false, rate: 1 / 9, topRow: maxR };
+      } else this.gateMode = false;
+    }
+
     // --- unit balap ---
     this.units = racers.map((r, k) => {
       const c = this.maze.channels[k % this.maze.channels.length];
@@ -142,6 +162,21 @@ class Race {
     this._updateFireballs(dt);
     this._updateCrusher(dt);
 
+    // flood gate: isi meteran, penuh -> dinding kebuka!
+    if (this.gate && !this.gate.open) {
+      this.gate.fill += dt * this.gate.rate;
+      if (this.gate.fill >= 1) {
+        this.gate.fill = 1; this.gate.open = true;
+        for (const t of this.gateTiles) this.maze.grid[t] = 0;
+        this.showBanner('GATE OPEN!', 'gaspol!');
+        this.shake = Math.max(this.shake, 10);
+        for (const t of this.gateTiles) {
+          const gx = tileCX(this.ax, t % TC), gy = tileCY(this.ay, (t / TC) | 0);
+          this._explode(gx, gy, '#9adcff', 18);
+        }
+      }
+    }
+
     // cek finis
     for (const u of this.units) {
       if (u.alive && u.y >= this.finY) { this._finish(u, null); return; }
@@ -155,7 +190,7 @@ class Race {
   }
   _solidAt(px, py) {
     const t = this._tileAt(px, py);
-    return t === -2 || this.maze.grid[t] === 1;
+    return t === -2 || this.maze.grid[t] !== 0;
   }
 
   _updateUnit(u, dt) {
@@ -262,7 +297,7 @@ class Race {
     const y0 = Math.max(0, Math.floor((e.y - r - this.ay) / TILE));
     const y1 = Math.min(TR - 1, Math.floor((e.y + r - this.ay) / TILE));
     for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) {
-      if (g[ty * TC + tx] !== 1) continue;
+      if (g[ty * TC + tx] === 0) continue;   // 1 = dinding, 2 = gerbang terkunci
       const cx = this.ax + tx * TILE, cy = this.ay + ty * TILE;
       const nx = Math.max(cx, Math.min(e.x, cx + TILE));
       const ny = Math.max(cy, Math.min(e.y, cy + TILE));
@@ -655,6 +690,54 @@ class Race {
 
     this._drawFireBoss(c, t);
     this._drawCrusher(c, t);
+
+    // ---- FLOOD GATE: gerbang + air naik + counter ----
+    if (this.gate && !this.gate.open) {
+      const f = this.gate.fill;
+      // air naik di ruang start (hanya tile jalan, baris 0..topRow)
+      const chTop = this.ay, chBot = this.ay + (this.gate.topRow + 1) * TILE;
+      const wlvl = chBot - (chBot - chTop) * f;   // permukaan air (y)
+      const g = this.maze.grid;
+      for (let ty = 0; ty <= this.gate.topRow; ty++) for (let tx = 0; tx < TC; tx++) {
+        if (g[ty * TC + tx] !== 0) continue;
+        const x = this.ax + tx * TILE, y = this.ay + ty * TILE;
+        const top = Math.max(y, wlvl);
+        if (top < y + TILE - 2) {
+          c.fillStyle = 'rgba(56,189,248,.5)';
+          c.fillRect(x, top, TILE, y + TILE - top);
+        }
+      }
+      // garis permukaan berombak
+      c.strokeStyle = '#bae6fd'; c.lineWidth = 3;
+      c.beginPath();
+      let started = false;
+      for (let tx = 0; tx < TC; tx++) {
+        if (g[tx] !== 0 && this.gate.topRow === 0) continue;
+        const x = this.ax + tx * TILE;
+        const y = wlvl + Math.sin(t * 4 + tx) * 4;
+        if (!started) { c.moveTo(x, y); started = true; } else c.lineTo(x, y);
+      }
+      c.stroke();
+      // gerbang: palang besi
+      for (const id of this.gateTiles) {
+        const tx = id % TC, ty = (id / TC) | 0;
+        const x = this.ax + tx * TILE, y = this.ay + ty * TILE;
+        c.fillStyle = '#3f3f46'; c.fillRect(x + 2, y + 2, TILE - 4, TILE - 4);
+        c.fillStyle = '#9adcff';
+        for (let b = 0; b < 3; b++) c.fillRect(x + 10 + b * 12, y + 4, 5, TILE - 8);
+        c.fillStyle = '#52525b'; c.fillRect(x + 2, y + TILE / 2 - 3, TILE - 4, 6);
+      }
+      // counter % ala blok 3D abu-abu
+      const pct = Math.floor(f * 100);
+      const bw = 120, bh = 56, bx = this.W / 2 - bw / 2, by = 14;
+      c.fillStyle = '#000'; c.fillRect(bx - 3, by - 3, bw + 6, bh + 6);
+      const gg = c.createLinearGradient(0, by, 0, by + bh);
+      gg.addColorStop(0, '#c9ccd3'); gg.addColorStop(0.5, '#9aa0a8'); gg.addColorStop(1, '#7c818a');
+      c.fillStyle = gg; c.fillRect(bx, by, bw, bh);
+      c.fillStyle = '#1c1c22'; c.font = '26px "Press Start 2P", monospace';
+      c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText(pct + '%', this.W / 2, by + bh / 2 + 2);
+    }
 
     for (const u of this.units) if (u.alive) this._drawUnit(c, u, t);
 

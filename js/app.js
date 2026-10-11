@@ -71,25 +71,24 @@ function newTournament() {
 
 function renderBracket() {
   const g = T.groups, w = T.w;
+  const sq = (r) => '<div class="bq" style="--c:' + r.color + '"><span class="face"></span></div><div class="bnm">' + r.name + '</div>';
+  const slot = (id, r) => '<div class="bslot" id="' + id + '">' + (r ? sq(r) : '<span class="q">?</span>') + '</div>';
+  const node = (id, r, label) =>
+    '<div class="bnode">' + slot(id, r) + (label ? '<div class="blab">' + label + '</div>' : '') + '</div>';
   const grp = (k) =>
-    '<div class="bcol"><h3>GROUP ' + k + '</h3><div class="chips">' +
-    g[k].map((r) => chipHTML(r)).join('') + '</div><div class="arrow">▼</div>' +
-    slotHTML('w-' + k, w[k]) + '</div>';
-  const html =
-    grp('A') + grp('B') + grp('C') + grp('D') +
-    '<div class="bcol"><h3>SEMIFINAL</h3>' +
-      '<div class="match">' + slotHTML('sf1a', w.A) + '<div class="vs">VS</div>' + slotHTML('sf1b', w.B) + '</div>' +
-      '<div class="arrow">▼</div>' + slotHTML('w-SF1', w.SF1) +
-      '<div class="match">' + slotHTML('sf2a', w.C) + '<div class="vs">VS</div>' + slotHTML('sf2b', w.D) + '</div>' +
-      '<div class="arrow">▼</div>' + slotHTML('w-SF2', w.SF2) +
-    '</div>' +
-    '<div class="bcol finalcol"><h3>FINAL</h3>' +
-      '<div class="match">' + slotHTML('fa', w.SF1) + '<div class="vs">VS</div>' + slotHTML('fb', w.SF2) + '</div>' +
-      '<div class="arrow">▼</div>' + slotHTML('w-F', w.F) +
-    '</div>' +
-    '<div class="bcol champcol"><h3>JUARA</h3><div style="font-size:44px">★</div>' +
-      slotHTML('w-CH', w.F) + '</div>';
-  $('bracket-grid').innerHTML = html;
+    '<div class="bnode">' + slot('w-' + k, w[k]) +
+    '<div class="bmem">' + g[k].map((r) =>
+      '<div class="bq sm" style="--c:' + r.color + '" title="' + r.name + '"><span class="face"></span></div>'
+    ).join('') + '</div>' +
+    '<div class="blab">GROUP ' + k + '</div></div>';
+  $('bracket-grid').innerHTML =
+    '<div class="btree">' +
+      '<div class="blvl lvl1">' + node('w-CH', w.F, '★ CHAMPION') + '</div>' +
+      '<div class="blvl lvl2"><div class="conn-h"></div>' +
+        node('w-SF1', w.SF1, 'SEMIFINAL 1') + node('w-SF2', w.SF2, 'SEMIFINAL 2') + '</div>' +
+      '<div class="blvl lvl4"><div class="conn-h"></div>' +
+        grp('A') + grp('B') + grp('C') + grp('D') + '</div>' +
+    '</div>';
 }
 
 function showStage(which) {
