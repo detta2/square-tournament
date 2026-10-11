@@ -1,12 +1,15 @@
 'use strict';
-/* Maze generation + BFS pathfinding validation.
+/* Maze generation + BFS pathfinding validation (LEGACY, tidak dipakai lagi).
  * Grid tile: 1 = dinding, 0 = jalur. Ukuran 15 x 11 tile.
  * Baris 0-2 : saluran start hijau (per kolom channel)
  * Baris 3-8 : labirin (recursive backtracker + braid biar ada banyak jalur)
  * Baris 9   : lintasan sprint terbuka
  * Baris 10  : garis finis kotak-kotak
+ *
+ * ARENA BARU (marble-race, dipakai Race): lihat bagian ARENA di bawah.
+ * Ukuran: 20 x 12 tile, TILE tetap 48px -> pas canvas 960x600.
  */
-const TILE = 48, TC = 15, TR = 11;
+const TILE = 48, TC = 20, TR = 12;
 
 function genMaze(channels) {
   const W = TC, H = TR;
@@ -133,7 +136,112 @@ function genMazeSafe(channels) {
   throw new Error('genMazeSafe: gagal membuat labirin valid');
 }
 
+/* ================================================================
+ * ARENA (marble-race): ruangan TERBUKA, bukan labirin.
+ * Simbol ASCII per tile:
+ *   '#' dinding ungu   '.' lantai   'F' zona finis (atas)
+ *   'W' air (zona lambat)   'S' area spawn   'G' gerbang flood-gate
+ * Grid: 20 kolom x 12 baris. Baris 8 = dinding + gerbang G,
+ * baris 9-10 = kandang spawn (disegel saat gate-mode).
+ * ================================================================ */
+const ARENAS = [
+  { name: 'Plaza', map: [
+    "#########FF#########",
+    "#..................#",
+    "#..................#",
+    "#....##......##....#",
+    "#....##......##....#",
+    "#..................#",
+    "#..................#",
+    "#....##......##....#",
+    "###GG######GG#######",
+    "#..................#",
+    "#......SSSSSS......#",
+    "####################",
+  ]},
+  { name: 'Koridor', map: [
+    "#########FF#########",
+    "#..................#",
+    "#..................#",
+    "#...######.........#",
+    "#..................#",
+    "#.........######...#",
+    "#..................#",
+    "#...######....W....#",
+    "###GG######GG#######",
+    "#..................#",
+    "#......SSSSSS......#",
+    "####################",
+  ]},
+  { name: 'Cross', map: [
+    "#########FF#########",
+    "#..................#",
+    "#........##........#",
+    "#........##........#",
+    "#....##########....#",
+    "#....##########....#",
+    "#........##........#",
+    "#........##...W....#",
+    "###GG######GG#######",
+    "#..................#",
+    "#......SSSSSS......#",
+    "####################",
+  ]},
+];
+
+function parseArena(def) {
+  const H = def.map.length, W = def.map[0].length;
+  const grid = new Uint8Array(W * H);
+  const water = new Set(), spawns = [], finish = [], gates = [];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const ch = def.map[y][x], id = y * W + x;
+    if (ch === '#') grid[id] = 1;
+    else if (ch === 'W') { grid[id] = 0; water.add(id); }
+    else if (ch === 'F') { grid[id] = 0; finish.push(id); }
+    else if (ch === 'S') { grid[id] = 0; spawns.push(id); }
+    else if (ch === 'G') { grid[id] = 0; gates.push(id); }
+    else grid[id] = 0;
+  }
+  return { name: def.name, grid: grid, water: water, spawns: spawns,
+           finish: finish, gates: gates, W: W, H: H };
+}
+
+/* BFS: semua spawn harus bisa mencapai zona finis (lewat tile jalan). */
+function arenaConnected(a) {
+  const W = a.W, H = a.H, g = a.grid;
+  const seen = new Uint8Array(W * H);
+  const q = [];
+  for (const f of a.finish) { seen[f] = 1; q.push(f); }
+  let head = 0;
+  while (head < q.length) {
+    const id = q[head++], x = id % W, y = (id / W) | 0;
+    const nb = [];
+    if (x + 1 < W) nb.push(id + 1);
+    if (x - 1 >= 0) nb.push(id - 1);
+    if (y + 1 < H) nb.push(id + W);
+    if (y - 1 >= 0) nb.push(id - W);
+    for (const n of nb) if (!seen[n] && g[n] === 0) { seen[n] = 1; q.push(n); }
+  }
+  for (const s of a.spawns) if (!seen[s]) return false;
+  return a.spawns.length > 0 && a.finish.length > 0 && a.gates.length > 0;
+}
+
+/* Pilih arena acak yang valid; fallback ke Plaza. */
+function genArena() {
+  const order = [0, 1, 2];
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = (Math.random() * (i + 1)) | 0;
+    const t = order[i]; order[i] = order[j]; order[j] = t;
+  }
+  for (const i of order) {
+    const a = parseArena(ARENAS[i]);
+    if (arenaConnected(a)) return a;
+  }
+  return parseArena(ARENAS[0]);
+}
+
 // dukung node --check & test via eval
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { TILE, TC, TR, genMaze, genMazeSafe, bfsDist, tileCX, tileCY };
+  module.exports = { TILE, TC, TR, genMaze, genMazeSafe, bfsDist, tileCX, tileCY,
+    ARENAS, parseArena, genArena };
 }
