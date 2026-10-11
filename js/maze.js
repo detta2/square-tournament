@@ -139,50 +139,36 @@ function genMazeSafe(channels) {
 /* ================================================================
  * ARENA (marble-race): ruangan TERBUKA, bukan labirin.
  * Simbol ASCII per tile:
- *   '#' dinding ungu   '.' lantai   'F' zona finis (atas)
+ *   '#' dinding ungu   '.' lantai   'F' zona finis (strip VERTIKAL kanan, ala video)
  *   'W' air (zona lambat)   'S' area spawn   'G' gerbang flood-gate
  * Grid: 20 kolom x 12 baris. Baris 8 = dinding + gerbang G,
  * baris 9-10 = kandang spawn (disegel saat gate-mode).
  * ================================================================ */
 const ARENAS = [
-  { name: 'Plaza', map: [
-    "#########FF#########",
+  { name: 'Video1', map: [
+    "####################",
     "#..................#",
-    "#..................#",
-    "#....##......##....#",
-    "#....##......##....#",
-    "#..................#",
-    "#..................#",
-    "#....##......##....#",
-    "###GG######GG#######",
+    "#...####....####...#",
+    "#...####....####.FF#",
+    "#................FF#",
+    "#................FF#",
+    "#.....######.......#",
+    "#.....######..W....#",
+    "###GG######GG###GG##",
     "#..................#",
     "#......SSSSSS......#",
     "####################",
   ]},
-  { name: 'Koridor', map: [
-    "#########FF#########",
-    "#..................#",
-    "#..................#",
-    "#...######.........#",
-    "#..................#",
-    "#.........######...#",
-    "#..................#",
-    "#...######....W....#",
-    "###GG######GG#######",
-    "#..................#",
-    "#......SSSSSS......#",
+  { name: 'Video2', map: [
     "####################",
-  ]},
-  { name: 'Cross', map: [
-    "#########FF#########",
     "#..................#",
-    "#........##........#",
-    "#........##........#",
-    "#....##########....#",
-    "#....##########....#",
-    "#........##........#",
-    "#........##...W....#",
-    "###GG######GG#######",
+    "#..######..........#",
+    "#..######........FF#",
+    "#................FF#",
+    "#........######..FF#",
+    "#........######....#",
+    "#..W...............#",
+    "###GG######GG###GG##",
     "#..................#",
     "#......SSSSSS......#",
     "####################",
@@ -226,9 +212,9 @@ function arenaConnected(a) {
   return a.spawns.length > 0 && a.finish.length > 0 && a.gates.length > 0;
 }
 
-/* Pilih arena acak yang valid; fallback ke Plaza. */
+/* Pilih arena acak yang valid; fallback ke Video1. */
 function genArena() {
-  const order = [0, 1, 2];
+  const order = [0, 1];
   for (let i = order.length - 1; i > 0; i--) {
     const j = (Math.random() * (i + 1)) | 0;
     const t = order[i]; order[i] = order[j]; order[j] = t;

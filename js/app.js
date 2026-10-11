@@ -85,7 +85,7 @@ function renderBracket() {
     '<div class="btree">' +
       '<div class="blvl lvl1">' + node('w-CH', w.F, '★ CHAMPION') + '</div>' +
       '<div class="blvl lvl2"><div class="conn-h"></div>' +
-        node('w-SF1', w.SF1, 'SEMIFINAL 1') + node('w-SF2', w.SF2, 'SEMIFINAL 2') + '</div>' +
+        node('w-SF1', w.SF1, 'SF 1') + node('w-SF2', w.SF2, 'SF 2') + '</div>' +
       '<div class="blvl lvl4"><div class="conn-h"></div>' +
         grp('A') + grp('B') + grp('C') + grp('D') + '</div>' +
     '</div>';

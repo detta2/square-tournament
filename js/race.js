@@ -3,7 +3,7 @@
  * (marble-race), boss api pemburu, kill feed, flood gate.
  * TIDAK ada pathfinding — pembalap wander + momentum + pantul dinding. */
 const STEP = 1 / 120;          // fixed timestep fisika
-const BASE_SPEED = 105;        // px/detik — santai, enak ditonton (jangan terlalu cepat!)
+const BASE_SPEED = 82;         // px/detik — santai, enak ditonton/direkam (jangan terlalu cepat!)
 const BOSS_SPEED = 92;         // boss sedikit lebih lambat -> near-miss seru
 const HEAT_TIMEOUT = 150;      // detik sim; habis -> pemenang = yg terdekat finis
 
@@ -53,7 +53,7 @@ class Race {
       return {
         name: r.name, color: r.color, dark: r.dark,
         x: sx + (Math.random() - 0.5) * 20, y: sy + (Math.random() - 0.5) * 20,
-        vx: 0, vy: 0, r: 14,
+        vx: 0, vy: 0, r: 18,
         skill: 0.92 + Math.random() * 0.16,
         wtx: sx, wty: sy, retarget: Math.random() * 2,
         stuckT: 0, lastPX: 0, lastPY: 0,
@@ -661,6 +661,12 @@ class Race {
     // hantu pembalap
     for (const u of this.units) if (u.alive) this._drawUnit(c, u, t);
 
+    // label ronde kiri atas (ala video)
+    c.textAlign = 'left'; c.textBaseline = 'alphabetic';
+    c.font = 'bold 16px monospace';
+    c.fillStyle = '#000'; c.fillText(this.label, 17, 37);
+    c.fillStyle = '#fff'; c.fillText(this.label, 16, 36);
+
     // kill feed kanan atas
     c.textAlign = 'right'; c.textBaseline = 'alphabetic';
     c.font = 'bold 14px monospace';
@@ -704,10 +710,10 @@ class Race {
   /* Hantu ala Pac-Man: badan rounded, bawah bergerigi, 2 mata. */
   _drawUnit(c, u, t) {
     const x = Math.round(u.x), y = Math.round(u.y);
-    const w = 34, h = 42;
+    const w = 44, h = 54;
     // bayangan
     c.fillStyle = 'rgba(0,0,0,.3)';
-    c.beginPath(); c.ellipse(x, y + 22, 15, 6, 0, 0, 6.283); c.fill();
+    c.beginPath(); c.ellipse(x, y + 28, 19, 7, 0, 0, 6.283); c.fill();
     // melayang halus
     const bob = Math.sin(t * 9 + u.x * 0.05) * 2.5;
     const top = y - h / 2 + bob, bot = y + h / 2 + bob;
