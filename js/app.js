@@ -204,6 +204,10 @@ $('btn-start').addEventListener('click', () => {
   T.running = true;
   playHeat();
 });
+// ?autostart=1 : langsung mulai (untuk screenshot/testing lokal)
+if (new URLSearchParams(location.search).get('autostart') === '1') {
+  setTimeout(() => $('btn-start').click(), 400);
+}
 $('btn-again').addEventListener('click', () => { newTournament(); });
 $('btn-speed').addEventListener('click', (e) => {
   T.speed = T.speed === 1 ? 2 : (T.speed === 2 ? 4 : 1);
