@@ -1,195 +1,177 @@
 :root{
-  --bg:#161226; --panel:#221b3a; --yellow:#ffd21f; --purple:#a855f7;
-  --pink:#ff5fa2; --ink:#0d0a18;
+  --cream:#f3e9d2; --cream2:#e9dcc0; --ink:#2b2118; --line:#3a2f23;
+  --green:#a3e635; --yellow:#ffd21f; --purple:#7c3aed;
 }
 *{box-sizing:border-box; margin:0; padding:0;}
 html,body{height:100%;}
 body{
-  background:radial-gradient(1200px 700px at 50% -10%, #2b2150 0%, var(--bg) 60%) fixed, var(--bg);
-  color:#fff; font-family:ui-monospace,Menlo,Consolas,monospace;
+  background:var(--cream); color:var(--ink);
+  font-family:ui-monospace,Menlo,Consolas,monospace;
   display:flex; flex-direction:column; overflow:hidden;
   user-select:none; -webkit-user-select:none;
 }
 #app{display:flex; flex-direction:column; height:100vh; height:100dvh;}
 
-/* ---------- HUD ---------- */
+/* ---------- HUD ramping ---------- */
 #hud{
-  display:flex; align-items:center; gap:14px;
-  padding:10px 16px; background:#0f0b1e; border-bottom:3px solid #000;
-  box-shadow:0 3px 0 rgba(168,85,247,.35); z-index:5; flex:0 0 auto;
+  display:flex; align-items:center; gap:12px;
+  padding:8px 14px; background:var(--cream2); border-bottom:4px solid var(--ink);
+  z-index:5; flex:0 0 auto;
 }
 #logo{
-  font-family:'Press Start 2P',monospace; font-size:13px; color:var(--yellow);
-  text-shadow:2px 2px 0 #000; display:flex; align-items:center; gap:10px;
-  white-space:nowrap;
+  font-family:'Press Start 2P',monospace; font-size:12px; color:var(--ink);
+  display:flex; align-items:center; gap:8px; white-space:nowrap;
 }
 .logo-sq{
-  width:22px; height:22px; display:inline-block;
+  width:20px; height:20px; display:inline-block;
   background:conic-gradient(#ff8c1a 0 25%, #2f7bff 0 50%, #4ade80 0 75%, #ff5fa2 0);
-  border:3px solid #000; box-shadow:2px 2px 0 rgba(0,0,0,.6);
-  animation:spinHue 6s linear infinite;
+  border:3px solid var(--ink);
 }
-@keyframes spinHue{to{filter:hue-rotate(360deg);}}
 #round-label{
-  font-family:'Press Start 2P',monospace; font-size:12px; color:#fff;
-  background:#3b2d6e; border:3px solid #000; padding:9px 14px;
-  box-shadow:inset -3px -3px 0 rgba(0,0,0,.35), inset 3px 3px 0 rgba(255,255,255,.12);
-  white-space:nowrap;
+  font-family:'Press Start 2P',monospace; font-size:11px; color:var(--cream);
+  background:var(--ink); padding:8px 12px; white-space:nowrap;
 }
-/* timer blok 3D abu-abu */
-#timer-wrap{margin-left:auto;}
 #timer{
-  font-family:'Press Start 2P',monospace; font-size:14px; color:#1c1c22;
+  margin-left:auto; font-family:'Press Start 2P',monospace; font-size:13px; color:#1c1c22;
   background:linear-gradient(#c9ccd3 0%, #9aa0a8 45%, #7c818a 100%);
-  border:3px solid #000; border-radius:6px; padding:10px 14px; min-width:150px;
-  text-align:center;
-  box-shadow:inset 2px 2px 0 rgba(255,255,255,.7), inset -2px -2px 0 rgba(0,0,0,.35),
-             0 4px 0 #000;
-  font-variant-numeric:tabular-nums;
+  border:3px solid var(--ink); border-radius:6px; padding:8px 12px; min-width:130px;
+  text-align:center; font-variant-numeric:tabular-nums;
+  box-shadow:inset 2px 2px 0 rgba(255,255,255,.7), inset -2px -2px 0 rgba(0,0,0,.35);
 }
-#controls{display:flex; gap:10px; align-items:center;}
+#controls{display:flex; gap:8px; align-items:center;}
 .pbtn{
-  font-family:'Press Start 2P',monospace; font-size:11px; color:#fff;
-  background:#4c3a8c; border:3px solid #000; border-radius:6px;
-  padding:11px 14px; cursor:pointer;
-  box-shadow:inset -3px -3px 0 rgba(0,0,0,.35), inset 3px 3px 0 rgba(255,255,255,.15),
-             0 4px 0 #000;
+  font-family:'Press Start 2P',monospace; font-size:10px; color:#fff;
+  background:#5b4a8a; border:3px solid var(--ink); border-radius:6px;
+  padding:9px 12px; cursor:pointer;
+  box-shadow:inset -3px -3px 0 rgba(0,0,0,.3), 0 3px 0 var(--ink);
   transition:transform .06s;
 }
-.pbtn:hover{filter:brightness(1.15);}
-.pbtn:active{transform:translateY(3px); box-shadow:inset -3px -3px 0 rgba(0,0,0,.35), 0 1px 0 #000;}
+.pbtn:hover{filter:brightness(1.12);}
+.pbtn:active{transform:translateY(2px); box-shadow:inset -3px -3px 0 rgba(0,0,0,.3), 0 1px 0 var(--ink);}
 .pbtn.primary{background:#22a355;}
 .pbtn.hidden{display:none;}
 
-/* ---------- STAGE ---------- */
+/* ---------- BRACKET (compact, selalu terlihat) ---------- */
+#bracket-bar{
+  flex:0 0 auto; background:var(--cream); border-bottom:4px solid var(--ink);
+  padding:8px 14px 10px; overflow-x:auto;
+}
+#bracket-title{
+  font-family:'Press Start 2P',monospace; font-size:clamp(15px,2.2vw,24px);
+  color:var(--ink); margin-bottom:8px; text-shadow:2px 2px 0 rgba(0,0,0,.12);
+}
+#bracket-grid{min-width:560px;}
+.btree{display:flex; flex-direction:column; align-items:center;}
+.blvl{display:flex; gap:22px; position:relative; padding-top:20px;}
+.blvl.lvl1{padding-top:0;}
+.conn-h{position:absolute; top:0; height:20px; border-top:4px solid var(--line); left:40px; right:40px;}
+.bnode{position:relative; width:80px; display:flex; flex-direction:column; align-items:center; gap:4px;}
+.bnode::before{
+  content:''; position:absolute; top:-20px; left:50%; width:4px; height:20px;
+  background:var(--line); transform:translateX(-50%);
+}
+.blvl.lvl1 .bnode::before{display:none;}
+.blvl.lvl1 .bnode::after{
+  content:''; position:absolute; bottom:-20px; left:50%; width:4px; height:20px;
+  background:var(--line); transform:translateX(-50%);
+}
+.bslot{
+  width:46px; height:46px; display:flex; align-items:center; justify-content:center;
+  background:#fffdf6; border:3px solid var(--line); border-radius:6px;
+  box-shadow:2px 2px 0 rgba(0,0,0,.2);
+  font-family:'Press Start 2P',monospace; font-size:14px; color:#b9a888;
+}
+.blvl.lvl1 .bslot{width:58px; height:58px; border-color:#b8860b; background:#fffbe8;}
+.bq{
+  width:38px; height:38px; background:var(--c); border:3px solid var(--line); border-radius:5px;
+  box-shadow:inset -5px -5px 0 rgba(0,0,0,.22); position:relative;
+  animation:winPop .5s cubic-bezier(.2,2.4,.4,1);
+}
+.blvl.lvl1 .bq{width:48px; height:48px;}
+.bq .face::before, .bq .face::after{
+  content:''; position:absolute; top:28%; width:22%; height:26%;
+  background:#fff; border:2px solid #1c1c22; border-radius:2px;
+}
+.bq .face::before{left:20%;} .bq .face::after{right:20%;}
+.bq.sm{width:18px; height:18px; border-width:2px; border-radius:3px; animation:none;}
+.bq.sm .face::before, .bq.sm .face::after{border-width:1px;}
+.bnm{font-family:'Press Start 2P',monospace; font-size:8px; color:var(--ink);}
+.blab{font-family:'Press Start 2P',monospace; font-size:7px; color:#6b5c42; letter-spacing:1px; text-align:center;}
+.bmem{display:flex; gap:4px;}
+@keyframes winPop{from{transform:scale(.3) rotate(-8deg); opacity:0;}to{transform:scale(1) rotate(0); opacity:1;}}
+#next-tag{
+  display:inline-block; font-family:'Press Start 2P',monospace; font-size:11px; color:#0d0a18;
+  background:var(--yellow); border:3px solid var(--ink); padding:8px 12px; margin-top:8px;
+  box-shadow:0 3px 0 var(--ink); animation:blinkTag 1s steps(2) infinite;
+}
+#next-tag.hidden{display:none;}
+@keyframes blinkTag{50%{opacity:.55;}}
+
+/* ---------- STAGE + TRACK FRAME ala video ---------- */
 #stage{
   position:relative; flex:1 1 auto; display:flex; align-items:center; justify-content:center;
-  min-height:0; background:#0a0714;
+  min-height:0; background:var(--cream); padding:10px;
 }
-#stage:fullscreen{background:#0a0714;}
+#track-frame{
+  position:relative; padding:10px;
+  background:var(--green); border:4px solid var(--ink);
+  box-shadow:inset 0 0 0 4px var(--yellow), 6px 6px 0 rgba(0,0,0,.25);
+  max-width:100%; max-height:100%;
+}
 #game{
-  width:min(98vw, calc((100dvh - 150px) * 1.6));
-  aspect-ratio:960/600; height:auto; max-height:100%;
+  display:block; width:min(94vw, calc((100dvh - 320px) * 1.667));
+  aspect-ratio:960/576; height:auto; max-height:100%;
   image-rendering:pixelated; background:#000;
-  border:4px solid #000; box-shadow:0 0 40px rgba(168,85,247,.25);
+  border:4px solid var(--ink);
 }
-#stage:fullscreen #game{width:100vw; height:100vh; aspect-ratio:auto; object-fit:contain; border:none;}
-
-/* banner tengah (countdown / pemenang) */
 #banner{
-  position:absolute; inset:0; display:flex; flex-direction:column;
+  position:absolute; inset:10px; display:flex; flex-direction:column;
   align-items:center; justify-content:center; pointer-events:none; z-index:4;
 }
 #banner.hidden{display:none;}
 #banner-main{
-  font-family:'Press Start 2P',monospace; font-size:52px; color:var(--yellow);
+  font-family:'Press Start 2P',monospace; font-size:clamp(28px,4vw,52px); color:#fff;
   text-shadow:4px 4px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000;
   animation:pop .35s cubic-bezier(.2,2.2,.4,1);
   text-align:center; line-height:1.4; padding:0 20px;
 }
 #banner-sub{
-  margin-top:14px; font-family:'Press Start 2P',monospace; font-size:16px; color:#fff;
+  margin-top:12px; font-family:'Press Start 2P',monospace; font-size:14px; color:#fff;
   text-shadow:3px 3px 0 #000; animation:pop .35s .1s cubic-bezier(.2,2.2,.4,1) backwards;
 }
 @keyframes pop{from{transform:scale(.4); opacity:0;}to{transform:scale(1); opacity:1;}}
 
-/* ---------- BRACKET (gaya referensi: pohon WHO WILL WIN?) ---------- */
+/* ---------- CHAMPION overlay ---------- */
 .overlay{
-  position:absolute; inset:0; z-index:3; overflow:auto;
-  background:rgba(10,7,20,.92);
+  position:absolute; inset:0; z-index:10;
+  background:rgba(20,14,8,.94);
   display:flex; flex-direction:column; align-items:center; justify-content:center;
-  padding:24px; gap:18px;
+  padding:24px; gap:16px;
 }
 .overlay.hidden{display:none;}
-/* bracket pakai panel krem ala referensi */
-#bracket{ background:#f3e9d2; justify-content:flex-start; }
-#bracket-title{
-  font-family:'Press Start 2P',monospace; font-size:clamp(18px,3vw,32px);
-  color:#2b2118; text-shadow:3px 3px 0 rgba(0,0,0,.15);
-  align-self:flex-start; margin-bottom:6px;
-}
-#champ-title{
-  font-family:'Press Start 2P',monospace; font-size:clamp(26px,4.5vw,52px);
-  color:var(--yellow); text-align:center; line-height:1.5;
-  text-shadow:4px 4px 0 #7a4d00, 7px 7px 0 #000;
-  animation:floatT 2.4s ease-in-out infinite;
-}
-@keyframes floatT{0%,100%{transform:translateY(0);}50%{transform:translateY(-8px);}}
-#next-tag{
-  font-family:'Press Start 2P',monospace; font-size:13px; color:#0d0a18;
-  background:var(--yellow); border:3px solid #000; padding:10px 16px;
-  box-shadow:0 4px 0 #000; animation:blinkTag 1s steps(2) infinite;
-}
-#next-tag.hidden{display:none;}
-@keyframes blinkTag{50%{opacity:.55;}}
-
-/* pohon bracket */
-#bracket-grid{ max-width:100%; overflow-x:auto; padding:10px 6px 20px; }
-.btree{ display:flex; flex-direction:column; align-items:center; min-width:560px; }
-.blvl{ display:flex; gap:30px; position:relative; padding-top:30px; }
-.blvl.lvl1{ padding-top:0; }
-.conn-h{ position:absolute; top:0; height:30px; border-top:5px solid #3a2f23; left:55px; right:55px; }
-.bnode{ position:relative; width:110px; display:flex; flex-direction:column; align-items:center; gap:6px; }
-.bnode::before{
-  content:''; position:absolute; top:-30px; left:50%; width:5px; height:30px;
-  background:#3a2f23; transform:translateX(-50%);
-}
-.blvl.lvl1 .bnode::before{ display:none; }
-.blvl.lvl1 .bnode::after{
-  content:''; position:absolute; bottom:-30px; left:50%; width:5px; height:30px;
-  background:#3a2f23; transform:translateX(-50%);
-}
-.bslot{
-  width:64px; height:64px; display:flex; align-items:center; justify-content:center;
-  background:#fffdf6; border:4px solid #3a2f23; border-radius:8px;
-  box-shadow:3px 3px 0 rgba(0,0,0,.25);
-  font-family:'Press Start 2P',monospace; font-size:18px; color:#b9a888;
-}
-.blvl.lvl1 .bslot{ width:80px; height:80px; border-color:#b8860b; background:#fffbe8; }
-.bslot .q{ color:#c9b98f; }
-.bq{
-  width:52px; height:52px; background:var(--c); border:3px solid #3a2f23; border-radius:6px;
-  box-shadow:inset -6px -6px 0 rgba(0,0,0,.22); position:relative;
-  animation:winPop .5s cubic-bezier(.2,2.4,.4,1);
-}
-.blvl.lvl1 .bq{ width:66px; height:66px; }
-.bq .face::before, .bq .face::after{
-  content:''; position:absolute; top:30%; width:22%; height:26%;
-  background:#fff; border:2px solid #1c1c22; border-radius:2px;
-}
-.bq .face::before{ left:20%; } .bq .face::after{ right:20%; }
-.bq.sm{ width:24px; height:24px; border-width:2px; border-radius:4px; animation:none; }
-.bq.sm .face::before, .bq.sm .face::after{ border-width:1px; }
-.bnm{
-  font-family:'Press Start 2P',monospace; font-size:9px; color:#2b2118;
-  text-shadow:1px 1px 0 rgba(255,255,255,.6);
-}
-.blab{
-  font-family:'Press Start 2P',monospace; font-size:8px; color:#6b5c42;
-  letter-spacing:1px; text-align:center;
-}
-.bmem{ display:flex; gap:5px; }
-@keyframes winPop{from{transform:scale(.3) rotate(-8deg); opacity:0;}to{transform:scale(1) rotate(0); opacity:1;}}
-
-/* champion */
 #champ-star{
-  font-size:110px; color:#ffd700; line-height:1;
+  font-size:100px; color:#ffd700; line-height:1;
   text-shadow:0 0 30px #ffd700, 6px 6px 0 #7a4d00, 10px 10px 0 #000;
   animation:starSpin 3s ease-in-out infinite;
 }
 @keyframes starSpin{0%,100%{transform:rotate(-10deg) scale(1);}50%{transform:rotate(10deg) scale(1.15);}}
+#champ-title{
+  font-family:'Press Start 2P',monospace; font-size:clamp(26px,4.5vw,52px);
+  color:var(--yellow); text-align:center;
+  text-shadow:4px 4px 0 #7a4d00, 7px 7px 0 #000;
+}
 #champ-chip .chip{transform:scale(1.6); margin:10px 0;}
 #champ-sub{font-size:14px; color:#cfc6f5;}
-#btn-again{margin-top:6px; font-size:13px;}
-
-/* footer */
-#hint{
-  flex:0 0 auto; text-align:center; font-size:11px; color:#6f639e;
-  padding:8px; background:#0f0b1e; border-top:2px solid #000; letter-spacing:1px;
+.chip{
+  display:flex; align-items:center; gap:8px;
+  background:#141021; border:2px solid #000; border-radius:6px; padding:6px 8px;
+  font-size:12px; font-weight:bold; --c:#fff;
 }
+.chip .sq{width:20px; height:20px; background:var(--c); border:2px solid #000; border-radius:3px;}
+.chip .nm{color:#fff;}
 @media (max-width:900px){
-  #bracket-grid{gap:10px;}
-  .bcol{min-width:104px; padding:10px 8px;}
-  #banner-main{font-size:34px;}
+  #banner-main{font-size:28px;}
   #hud{flex-wrap:wrap;}
+  .bnode{width:64px;}
+  .conn-h{left:32px; right:32px;}
 }

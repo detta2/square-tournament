@@ -14,31 +14,32 @@
   <header id="hud">
     <div id="logo"><span class="logo-sq"></span>SQUARE TOURNAMENT</div>
     <div id="round-label">BRACKET</div>
-    <div id="timer-wrap" title="Waktu heat"><div id="timer">00:00.0</div></div>
+    <div id="timer">00:00.0</div>
     <div id="controls">
-      <button id="btn-start" class="pbtn primary">▶ MULAI TURNAMEN</button>
+      <button id="btn-start" class="pbtn primary">▶ MULAI</button>
       <button id="btn-speed" class="pbtn hidden" title="Kecepatan simulasi">1x</button>
       <button id="btn-skip" class="pbtn hidden" title="Lewati heat ini">SKIP ⏭</button>
       <button id="btn-full" class="pbtn" title="Layar penuh">⛶</button>
     </div>
   </header>
+  <section id="bracket-bar">
+    <h1 id="bracket-title">WHO WILL WIN?</h1>
+    <div id="bracket-grid"></div>
+    <div id="next-tag" class="hidden"></div>
+  </section>
   <main id="stage">
-    <canvas id="game" width="960" height="600"></canvas>
-    <div id="banner" class="hidden"><div id="banner-main"></div><div id="banner-sub"></div></div>
-    <section id="bracket" class="overlay">
-      <h1 id="bracket-title">WHO WILL WIN?</h1>
-      <div id="next-tag" class="hidden"></div>
-      <div id="bracket-grid"></div>
-    </section>
-    <section id="champion" class="overlay hidden">
-      <div id="champ-star">★</div>
-      <h1 id="champ-title">CHAMPION</h1>
-      <div id="champ-chip"></div>
-      <div id="champ-sub">Pemenang Square Tournament!</div>
-      <button id="btn-again" class="pbtn primary">↻ TURNAMEN BARU</button>
-    </section>
+    <div id="track-frame">
+      <canvas id="game" width="960" height="576"></canvas>
+      <div id="banner" class="hidden"><div id="banner-main"></div><div id="banner-sub"></div></div>
+    </div>
   </main>
-  <footer id="hint">16 kotak · 4 grup · 2 boss · 1 juara &nbsp;—&nbsp; siap direkam 📹</footer>
+  <section id="champion" class="overlay hidden">
+    <div id="champ-star">★</div>
+    <h1 id="champ-title">CHAMPION</h1>
+    <div id="champ-chip"></div>
+    <div id="champ-sub">Pemenang Square Tournament!</div>
+    <button id="btn-again" class="pbtn primary">↻ TURNAMEN BARU</button>
+  </section>
 </div>
 <script src="js/maze.js"></script>
 <script src="js/sfx.js"></script>

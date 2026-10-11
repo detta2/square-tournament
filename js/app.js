@@ -92,9 +92,12 @@ function renderBracket() {
 }
 
 function showStage(which) {
-  $('bracket').classList.toggle('hidden', which !== 'bracket');
+  // bracket-bar & trek selalu terlihat (satu layar ala video); hanya champion overlay yg toggle
   $('champion').classList.toggle('hidden', which !== 'champion');
-  cv.style.visibility = which === 'race' ? 'visible' : 'hidden';
+  if (which === 'champion') stopRaceCanvas();
+}
+function stopRaceCanvas() {
+  if (T.race) { T.race.destroy(); T.race = null; }
 }
 
 function setRaceButtons(on) {
@@ -133,9 +136,8 @@ function playHeat() {
     onDone: (winner) => {
       T.w[h.key] = winner;
       setRaceButtons(false);
-      // kembali ke braket dgn animasi pemenang
+      // bracket selalu terlihat — update langsung di tempat
       setTimeout(() => {
-        showStage('bracket');
         renderBracket();
         $('round-label').textContent = 'BRACKET';
         T.heatIdx++;
