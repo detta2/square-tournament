@@ -3,8 +3,8 @@
  * (marble-race), boss api pemburu, kill feed, flood gate.
  * TIDAK ada pathfinding — pembalap wander + momentum + pantul dinding. */
 const STEP = 1 / 120;          // fixed timestep fisika
-const BASE_SPEED = 82;         // px/detik — santai, enak ditonton/direkam (jangan terlalu cepat!)
-const BOSS_SPEED = 92;         // boss sedikit lebih lambat -> near-miss seru
+const BASE_SPEED = 100;        // px/detik — lincah, kelihatan balapan (jangan terlalu cepat!)
+const BOSS_SPEED = 104;        // boss seimbang dengan pembalap -> tetap mengancam
 const HEAT_TIMEOUT = 150;      // detik sim; habis -> pemenang = yg terdekat finis
 
 class Race {
@@ -43,6 +43,12 @@ class Race {
     this.floorTiles = [];
     for (let y = 0; y < AH; y++) for (let x = 0; x < AW; x++)
       if (this.arena.grid[y * AW + x] === 0) this.floorTiles.push(y * AW + x);
+    // tile jalan di LUAR kandang spawn — target acak tidak boleh di kandang
+    // (biar pembalap tidak balik arah ke bawah setelah keluar)
+    let penTop = AH;
+    for (const s of this.arena.spawns) penTop = Math.min(penTop, (s / AW) | 0);
+    this.openTiles = this.floorTiles.filter((t) => ((t / AW) | 0) < penTop);
+    if (!this.openTiles.length) this.openTiles = this.floorTiles;
 
     // --- FLOOD GATE: gerbang G disegel saat gate-mode; buka saat meteran penuh ---
     this.gateMode = opts.gate !== undefined ? opts.gate : Math.random() < 0.35;
@@ -236,15 +242,17 @@ class Race {
    * Panik kalau boss dekat -> kabur menjauhi boss. */
   _pickTarget(u) {
     u.retarget = 2.5 + Math.random() * 2;
+    // arena terbuka: sejak awal mayoritas target = finis (kelihatan balapan, bukan ngider).
     // makin lama heat berjalan, makin kuat diarahkan ke finis (biar tidak molor)
     // overtime (>75 dtk): hampir pasti ke finis -> heat dijamin selesai
-    const biasP = this.time > 75 ? 0.95 : (this.time > 40 ? 0.7 : 0.4);
+    const biasP = this.time > 75 ? 0.97 : (this.time > 40 ? 0.9 : 0.8);
     if (Math.random() < biasP) {
       // bias ke finis: titik acak di sekitar zona finis
       u.wtx = this.finCX + (Math.random() - 0.5) * 3 * TILE;
       u.wty = this.finCY + Math.random() * 1.5 * TILE;
     } else {
-      const t = this.floorTiles[(Math.random() * this.floorTiles.length) | 0];
+      const pool = this.openTiles;
+      const t = pool[(Math.random() * pool.length) | 0];
       u.wtx = tileCX(this.ax, t % this.arena.W);
       u.wty = tileCY(this.ay, (t / this.arena.W) | 0);
     }
