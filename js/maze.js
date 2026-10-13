@@ -151,7 +151,7 @@ function genMazeSafe(channels) {
 const PAL_DEFAULT = { wall: '#7c3aed', wallHi: '#a78bfa', wallLo: '#5b21b6', floorA: '#ffd9e8', floorB: '#f7e8c3' };
 
 const ARENAS = [
-  { name: 'Kawah Lava', bosses: 1, bossSpeed: 112,
+  { name: 'Kawah Lava', bosses: 1, bossSpeed: 112, bossSkin: 'lava',
     geysers: [[8, 4], [10, 5], [7, 6]],
     palette: { wall: '#991b1b', wallHi: '#ef4444', wallLo: '#450a0a', floorA: '#33231a', floorB: '#2a1c14' },
     map: [
@@ -168,7 +168,7 @@ const ARENAS = [
       "#......SSSSSS......#",
       "####################",
     ]},
-  { name: 'Gua Es', bosses: 1,
+  { name: 'Gua Es', bosses: 1, bossSkin: 'ice',
     palette: { wall: '#0284c7', wallHi: '#7dd3fc', wallLo: '#075985', floorA: '#e8f6ff', floorB: '#cdeafd' },
     map: [
       "####################",
@@ -184,7 +184,7 @@ const ARENAS = [
       "#......SSSSSS......#",
       "####################",
     ]},
-  { name: 'Labirin Portal', bosses: 1,
+  { name: 'Labirin Portal', bosses: 1, bossSkin: 'shadow',
     palette: { wall: '#7c3aed', wallHi: '#a78bfa', wallLo: '#5b21b6', floorA: '#f1e9ff', floorB: '#e2d2ff' },
     map: [
       "####################",
@@ -200,7 +200,7 @@ const ARENAS = [
       "#......SSSSSS......#",
       "####################",
     ]},
-  { name: 'Arena Badai', bosses: 1,
+  { name: 'Arena Badai', bosses: 1, bossSkin: 'shadow',
     palette: { wall: '#0f766e', wallHi: '#5eead4', wallLo: '#134e4a', floorA: '#e6fffa', floorB: '#c9f2ec' },
     map: [
       "####################",
@@ -216,7 +216,7 @@ const ARENAS = [
       "#......SSSSSS......#",
       "####################",
     ]},
-  { name: 'Sarang GARGANT', bosses: 2,
+  { name: 'Sarang GARGANT', bosses: 2, bossSkin: 'lava',
     palette: { wall: '#3f3f46', wallHi: '#a1a1aa', wallLo: '#18181b', floorA: '#2e2e33', floorB: '#26262b' },
     map: [
       "####################",
@@ -264,7 +264,7 @@ function parseArena(def) {
   for (const k of ['P', 'Q']) {
     const ts = portalTiles[k].slice().sort((a, b) => a - b);
     const half = Math.floor(ts.length / 2);
-    for (let i = 0; i < half; i++) portals.push({ a: ts[i], b: ts[i + half] });
+    for (let i = 0; i < half; i++) portals.push({ a: ts[i], b: ts[i + half], k: k });
   }
   // tornado: satu pusaran di centroid semua tile T
   const tornadoes = [];
@@ -276,7 +276,7 @@ function parseArena(def) {
       r: TILE * Math.sqrt(tornadoTiles.length) * 0.55,
     });
   }
-  return { name: def.name, bosses: def.bosses, bossSpeed: def.bossSpeed,
+  return { name: def.name, bosses: def.bosses, bossSpeed: def.bossSpeed, bossSkin: def.bossSkin,
     geysers: def.geysers || [], palette: def.palette || PAL_DEFAULT,
     grid: grid, water: water, spawns: spawns, finish: finish, gates: gates,
     lava: lava, ice: ice, portals: portals, bumpers: bumpers, breakable: breakable,
