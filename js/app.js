@@ -235,6 +235,8 @@ function playHeat() {
     },
   });
   T.race.start();
+  // umumkan nama stage tiap heat
+  showBanner(T.race.arena.name.toUpperCase() + '!', h.label);
   // rekaman mulai otomatis kalau user sudah mengaktifkan tombol REKAM
   if (Rec.armed && !Rec.mr) Rec.start();
 }

@@ -137,59 +137,146 @@ function genMazeSafe(channels) {
 }
 
 /* ================================================================
- * ARENA (marble-race): ruangan TERBUKA, bukan labirin.
- * Simbol ASCII per tile:
- *   '#' dinding ungu   '.' lantai   'F' zona finis (strip VERTIKAL kanan, ala video)
+ * ARENA (marble-race): 5 tipe stage + rintangan baru.
+ * Simbol ASCII per tile (grid 20x12):
+ *   '#' dinding   '.' lantai   'F' zona finis (strip VERTIKAL kanan, ala video)
  *   'W' air (zona lambat)   'S' area spawn   'G' gerbang flood-gate
- * Grid: 20 kolom x 12 baris. Baris 8 = dinding + gerbang G,
- * baris 9-10 = kandang spawn (disegel saat gate-mode).
+ *   'L' lava (menyentuh = terbakar!)   'I' es (licin, susah belok)
+ *   'P'/'Q' portal (teleport ke pasangan sehuruf)
+ *   'B' bumper (mental kuat)   'X' spinner (palang berputar)
+ *   'T' tornado (pusaran menyedot)
+ * Baris 8 = dinding + gerbang G, baris 9-10 = kandang spawn.
  * ================================================================ */
+const PAL_DEFAULT = { wall: '#7c3aed', wallHi: '#a78bfa', wallLo: '#5b21b6', floorA: '#ffd9e8', floorB: '#f7e8c3' };
+
 const ARENAS = [
-  { name: 'Video1', map: [
-    "####################",
-    "#..................#",
-    "#..................#",
-    "#................FF#",
-    "#................FF#",
-    "#................FF#",
-    "#..................#",
-    "#........W.........#",
-    "###GG######GG###GG##",
-    "#..................#",
-    "#......SSSSSS......#",
-    "####################",
-  ]},
-  { name: 'Video2', map: [
-    "####################",
-    "#..................#",
-    "#..................#",
-    "#................FF#",
-    "#................FF#",
-    "#................FF#",
-    "#..................#",
-    "#........W.........#",
-    "###GG######GG###GG##",
-    "#..................#",
-    "#......SSSSSS......#",
-    "####################",
-  ]},
+  { name: 'Kawah Lava', bosses: 1,
+    palette: { wall: '#991b1b', wallHi: '#ef4444', wallLo: '#450a0a', floorA: '#33231a', floorB: '#2a1c14' },
+    map: [
+      "####################",
+      "#..................#",
+      "#..LLL......LLL....#",
+      "#..LLL......LLL..FF#",
+      "#......B....B....FF#",
+      "#..LLL......LLL..FF#",
+      "#..LLL......LLL....#",
+      "#..................#",
+      "###GG######GG###GG##",
+      "#..................#",
+      "#......SSSSSS......#",
+      "####################",
+    ]},
+  { name: 'Gua Es', bosses: 1,
+    palette: { wall: '#0284c7', wallHi: '#7dd3fc', wallLo: '#075985', floorA: '#e8f6ff', floorB: '#cdeafd' },
+    map: [
+      "####################",
+      "#..................#",
+      "#..IIIII...IIIII...#",
+      "#..IIIII...IIIII.FF#",
+      "#......X.........FF#",
+      "#..IIIII...IIIII.FF#",
+      "#..IIIII...IIIII...#",
+      "#..................#",
+      "###GG######GG###GG##",
+      "#..................#",
+      "#......SSSSSS......#",
+      "####################",
+    ]},
+  { name: 'Labirin Portal', bosses: 1,
+    palette: { wall: '#7c3aed', wallHi: '#a78bfa', wallLo: '#5b21b6', floorA: '#f1e9ff', floorB: '#e2d2ff' },
+    map: [
+      "####################",
+      "#..................#",
+      "#.P...........Q....#",
+      "#.P...........Q..FF#",
+      "#.....B.....B....FF#",
+      "#.Q...........P..FF#",
+      "#.Q...........P....#",
+      "#..................#",
+      "###GG######GG###GG##",
+      "#..................#",
+      "#......SSSSSS......#",
+      "####################",
+    ]},
+  { name: 'Arena Badai', bosses: 1,
+    palette: { wall: '#0f766e', wallHi: '#5eead4', wallLo: '#134e4a', floorA: '#e6fffa', floorB: '#c9f2ec' },
+    map: [
+      "####################",
+      "#..................#",
+      "#......TTT.........#",
+      "#......TTT.......FF#",
+      "#..W...TTT...W...FF#",
+      "#......TTT.......FF#",
+      "#......TTT.........#",
+      "#.....X............#",
+      "###GG######GG###GG##",
+      "#..................#",
+      "#......SSSSSS......#",
+      "####################",
+    ]},
+  { name: 'Sarang GARGANT', bosses: 2,
+    palette: { wall: '#3f3f46', wallHi: '#a1a1aa', wallLo: '#18181b', floorA: '#2e2e33', floorB: '#26262b' },
+    map: [
+      "####################",
+      "#..................#",
+      "#..LLL......LLL....#",
+      "#..LLL......LLL..FF#",
+      "#.....BB....BB...FF#",
+      "#..LLL......LLL..FF#",
+      "#..LLL......LLL....#",
+      "#..................#",
+      "###GG######GG###GG##",
+      "#..................#",
+      "#......SSSSSS......#",
+      "####################",
+    ]},
 ];
 
 function parseArena(def) {
   const H = def.map.length, W = def.map[0].length;
   const grid = new Uint8Array(W * H);
   const water = new Set(), spawns = [], finish = [], gates = [];
+  const lava = new Set(), ice = new Set();
+  const portalTiles = { P: [], Q: [] };
+  const bumpers = [], spinners = [], tornadoTiles = [];
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const ch = def.map[y][x], id = y * W + x;
     if (ch === '#') grid[id] = 1;
-    else if (ch === 'W') { grid[id] = 0; water.add(id); }
-    else if (ch === 'F') { grid[id] = 0; finish.push(id); }
-    else if (ch === 'S') { grid[id] = 0; spawns.push(id); }
-    else if (ch === 'G') { grid[id] = 0; gates.push(id); }
-    else grid[id] = 0;
+    else {
+      grid[id] = 0;
+      if (ch === 'W') water.add(id);
+      else if (ch === 'F') finish.push(id);
+      else if (ch === 'S') spawns.push(id);
+      else if (ch === 'G') gates.push(id);
+      else if (ch === 'L') lava.add(id);
+      else if (ch === 'I') ice.add(id);
+      else if (ch === 'P' || ch === 'Q') portalTiles[ch].push(id);
+      else if (ch === 'B') bumpers.push(id);
+      else if (ch === 'X') spinners.push(id);
+      else if (ch === 'T') tornadoTiles.push(id);
+    }
   }
-  return { name: def.name, grid: grid, water: water, spawns: spawns,
-           finish: finish, gates: gates, W: W, H: H };
+  // portal: pasangan silang (paruh pertama <-> paruh kedua) biar teleport jauh
+  const portals = [];
+  for (const k of ['P', 'Q']) {
+    const ts = portalTiles[k].slice().sort((a, b) => a - b);
+    const half = Math.floor(ts.length / 2);
+    for (let i = 0; i < half; i++) portals.push({ a: ts[i], b: ts[i + half] });
+  }
+  // tornado: satu pusaran di centroid semua tile T
+  const tornadoes = [];
+  if (tornadoTiles.length) {
+    let sx = 0, sy = 0;
+    for (const t of tornadoTiles) { sx += t % W; sy += (t / W) | 0; }
+    tornadoes.push({
+      tx: sx / tornadoTiles.length, ty: sy / tornadoTiles.length,
+      r: TILE * Math.sqrt(tornadoTiles.length) * 0.55,
+    });
+  }
+  return { name: def.name, bosses: def.bosses, palette: def.palette || PAL_DEFAULT,
+    grid: grid, water: water, spawns: spawns, finish: finish, gates: gates,
+    lava: lava, ice: ice, portals: portals, bumpers: bumpers,
+    spinners: spinners, tornadoes: tornadoes, W: W, H: H };
 }
 
 /* BFS: semua spawn harus bisa mencapai zona finis (lewat tile jalan). */
@@ -212,12 +299,24 @@ function arenaConnected(a) {
   return a.spawns.length > 0 && a.finish.length > 0 && a.gates.length > 0;
 }
 
-/* Pilih arena acak yang valid; fallback ke Video1. */
+/* Pilih arena acak yang valid; ?arena=N untuk paksa stage tertentu (testing/foto).
+ * Fallback ke ARENAS[0]. */
 function genArena() {
-  const order = [0, 1];
-  for (let i = order.length - 1; i > 0; i--) {
-    const j = (Math.random() * (i + 1)) | 0;
-    const t = order[i]; order[i] = order[j]; order[j] = t;
+  let force = -1;
+  try {
+    if (typeof location !== 'undefined') {
+      const n = parseInt(new URLSearchParams(location.search).get('arena'), 10);
+      if (!isNaN(n) && n >= 0 && n < ARENAS.length) force = n;
+    }
+  } catch (e) {}
+  const order = [];
+  if (force >= 0) order.push(force);
+  else {
+    for (let i = 0; i < ARENAS.length; i++) order.push(i);
+    for (let i = order.length - 1; i > 0; i--) {
+      const j = (Math.random() * (i + 1)) | 0;
+      const t = order[i]; order[i] = order[j]; order[j] = t;
+    }
   }
   for (const i of order) {
     const a = parseArena(ARENAS[i]);

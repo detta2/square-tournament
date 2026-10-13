@@ -50,6 +50,28 @@ class Race {
     this.openTiles = this.floorTiles.filter((t) => ((t / AW) | 0) < penTop);
     if (!this.openTiles.length) this.openTiles = this.floorTiles;
 
+    // ---- RINTANGAN BARU ----
+    this.pal = this.arena.palette || null;
+    this.lavaSet = this.arena.lava || new Set();
+    this.iceSet = this.arena.ice || new Set();
+    const _px = (t) => ({ x: tileCX(this.ax, t % AW), y: tileCY(this.ay, (t / AW) | 0) });
+    this.bumpers = (this.arena.bumpers || []).map((t) => {
+      const p = _px(t); return { x: p.x, y: p.y, r: 16, pulse: 0 };
+    });
+    this.spinners = (this.arena.spinners || []).map((t) => {
+      const p = _px(t);
+      return { x: p.x, y: p.y, ang: Math.random() * 6.28, len: TILE * 1.7,
+               spd: (1.6 + Math.random() * 1.2) * (Math.random() < 0.5 ? -1 : 1), cd: 0 };
+    });
+    this.portals = (this.arena.portals || []).map((pr) => {
+      const a = _px(pr.a), b = _px(pr.b);
+      return { ax: a.x, ay: a.y, bx: b.x, by: b.y, t: Math.random() * 6.28 };
+    });
+    this.tornadoes = (this.arena.tornadoes || []).map((tn) => ({
+      x: this.ax + tn.tx * TILE + TILE / 2, y: this.ay + tn.ty * TILE + TILE / 2,
+      r: tn.r, t: Math.random() * 6.28,
+    }));
+
     // --- FLOOD GATE: gerbang G disegel saat gate-mode; buka saat meteran penuh ---
     this.gateMode = opts.gate !== undefined ? opts.gate : Math.random() < 0.35;
     this.gateTiles = this.arena.gates.slice();
@@ -71,14 +93,15 @@ class Race {
         skill: 0.92 + Math.random() * 0.16,
         wtx: sx, wty: sy, retarget: Math.random() * 2,
         stuckT: 0, lastPX: 0, lastPY: 0,
-        burnT: 0, alive: true, mood: 'normal',
+        burnT: 0, alive: true, mood: 'normal', portalCd: 0, onIce: false,
         blink: 2 + Math.random() * 3, inWater: false
       };
     });
 
     // --- BOSS: kotak api oranye, berkeliaran + memburu ---
-    // semifinal/final -> 2 boss di posisi beda
-    const nBoss = /SEMIFINAL|FINAL/.test(label || '') ? 2 : 1;
+    // jumlah boss bisa diatur per stage (Sarang GARGANT = 2 selalu)
+    const nBoss = (this.arena.bosses != null) ? this.arena.bosses
+      : (/SEMIFINAL|FINAL/.test(label || '') ? 2 : 1);
     this.bosses = [];
     for (let i = 0; i < nBoss; i++) {
       const bp = this._bossSpawn(i);
@@ -189,6 +212,12 @@ class Race {
     for (const u of this.units) if (u.alive) this._updateUnit(u, dt);
     this._collidePairs();
     this._updateBosses(dt);
+
+    // animasi rintangan
+    for (const sp of this.spinners) { sp.ang += sp.spd * dt; sp.cd = Math.max(0, sp.cd - dt); }
+    for (const bp of this.bumpers) bp.pulse = Math.max(0, bp.pulse - dt * 3);
+    for (const tn of this.tornadoes) tn.t += dt * 3;
+    for (const p of this.portals) p.t += dt * 2;
 
     // flood gate: isi meteran, penuh -> dinding kebuka!
     if (this.gate && !this.gate.open) {
@@ -334,18 +363,38 @@ class Race {
     const tid = this._tileAt(u.x, u.y);
     u.inWater = tid >= 0 && this.arena.water.has(tid);
     if (u.inWater) { sp *= 0.55; if (Math.random() < dt * 8) this._splash(u.x, u.y); }
+    // LAVA: sentuh = terbakar! | ES: licin, susah belok
+    u.onIce = tid >= 0 && this.iceSet.has(tid);
+    if (tid >= 0 && this.lavaSet.has(tid) && u.burnT <= 0) {
+      u.burnT = 1.0;
+      this._explode(u.x, u.y, '#ff7b1c', 10);
+      this.shake = Math.max(this.shake, 6);
+      this._sfx('burn');
+    }
     if (panic) sp *= 1.25;
     if (u.burnT > 0) sp *= 1.4;
     if (this.time > 75) sp *= 1.3;   // overtime
     u.mood = 'normal';
 
+    // TORNADO: pusaran menyedot + memutar
+    for (const tn of this.tornadoes) {
+      const tdx = u.x - tn.x, tdy = u.y - tn.y, td = Math.hypot(tdx, tdy);
+      if (td < tn.r && td > 1) {
+        const s = 320 * (1 - td / tn.r);
+        u.vx += ((-tdy / td) * s - (tdx / td) * s * 0.4) * dt * 2;
+        u.vy += ((tdx / td) * s - (tdy / td) * s * 0.4) * dt * 2;
+      }
+    }
+
     // momentum ala kelereng: akselerasi lembut -> meluncur lurus, belok malas
-    const k = Math.min(1, 3 * dt);
+    // (di atas es: jauh lebih licin)
+    const k = Math.min(1, (u.onIce ? 0.7 : 3) * dt);
     u.vx += (dx * sp - u.vx) * k;
     u.vy += (dy * sp - u.vy) * k;
     u.x += u.vx * dt; u.y += u.vy * dt;
 
     this._collideTiles(u);   // memantul di dinding
+    this._obstacles(u, dt);  // bumper / spinner / portal
 
     // anti-stuck sederhana: kalau 2.5 dtk cuma gerak <10px, tendang acak
     u.stuckT = (u.stuckT || 0) + dt;
@@ -459,6 +508,61 @@ class Race {
     }
   }
 
+  /* ============ RINTANGAN: bumper / spinner / portal ============ */
+  _obstacles(u, dt) {
+    // BUMPER: mental kuat kayak pinball
+    for (const bp of this.bumpers) {
+      const dx = u.x - bp.x, dy = u.y - bp.y, rr = u.r + bp.r;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < rr * rr && d2 > 0.01) {
+        const d = Math.sqrt(d2), nx = dx / d, ny = dy / d;
+        u.x = bp.x + nx * rr; u.y = bp.y + ny * rr;
+        const vn = u.vx * nx + u.vy * ny;
+        if (vn < 0) { u.vx -= 2.1 * vn * nx; u.vy -= 2.1 * vn * ny; }
+        u.vx += nx * 170; u.vy += ny * 170;
+        bp.pulse = 1;
+        this._sfx('bounce');
+        this._explode(bp.x, bp.y, '#ffd21f', 8);
+      }
+    }
+    // SPINNER: palang berputar — kena = terpental!
+    for (const sp of this.spinners) {
+      const cs = Math.cos(sp.ang), sn = Math.sin(sp.ang), hl = sp.len / 2;
+      const rx = u.x - sp.x, ry = u.y - sp.y;
+      const along = rx * cs + ry * sn, perp = -rx * sn + ry * cs;
+      if (Math.abs(along) < hl + u.r && Math.abs(perp) < u.r + 9 && sp.cd <= 0) {
+        sp.cd = 0.35;
+        const sgn = (perp >= 0 ? 1 : -1);
+        const nx = -sn * sgn, ny = cs * sgn;
+        const tang = sp.spd * hl;   // kecepatan ujung palang
+        u.vx = nx * 260 + cs * tang * 0.9;
+        u.vy = ny * 260 + sn * tang * 0.9;
+        this.shake = Math.max(this.shake, 7);
+        this._sfx('bounce');
+        this._explode(u.x, u.y, '#e041d8', 10);
+        this.feed.push({ text: '🌀 ' + u.name + ' kena kipas!', t: this.time });
+        if (this.feed.length > 8) this.feed.shift();
+      }
+    }
+    // PORTAL: teleport ke pasangan
+    u.portalCd = Math.max(0, (u.portalCd || 0) - dt);
+    if (u.portalCd <= 0) {
+      for (const p of this.portals) {
+        const da = Math.hypot(u.x - p.ax, u.y - p.ay);
+        const db = Math.hypot(u.x - p.bx, u.y - p.by);
+        if (da < 26 || db < 26) {
+          const tx = da < 26 ? p.bx : p.ax, ty = da < 26 ? p.by : p.ay;
+          this._explode(u.x, u.y, '#a855f7', 12);
+          u.x = tx; u.y = ty; u.vx *= 0.5; u.vy *= 0.5;
+          u.portalCd = 2;
+          this._explode(tx, ty, '#a855f7', 12);
+          this._sfx('gate');
+          break;
+        }
+      }
+    }
+  }
+
   _collidePairs() {
     const us = this.units;
     for (let i = 0; i < us.length; i++) {
@@ -544,6 +648,7 @@ class Race {
   _renderStatic() {
     const c = this.staticLayer.getContext('2d');
     const AW = this.arena.W, AH = this.arena.H, g = this.arena.grid;
+    const pal = this.pal || { wall: '#7c3aed', wallHi: '#a78bfa', wallLo: '#5b21b6', floorA: '#ffd9e8', floorB: '#f7e8c3' };
     // bingkai bata cokelat
     c.fillStyle = '#7c4a1e'; c.fillRect(this.ax - 20, this.ay - 20, AW * TILE + 40, AH * TILE + 40);
     c.strokeStyle = '#4a2a0e'; c.lineWidth = 3;
@@ -562,13 +667,24 @@ class Race {
     for (let ty = 0; ty < AH; ty++) for (let tx = 0; tx < AW; tx++) {
       const x = this.ax + tx * TILE, y = this.ay + ty * TILE, id = ty * AW + tx;
       if (g[id] === 1) {
-        // dinding ungu + highlight 3D
-        c.fillStyle = '#7c3aed'; c.fillRect(x, y, TILE, TILE);
-        c.fillStyle = '#a78bfa'; c.fillRect(x, y, TILE, 6); c.fillRect(x, y, 6, TILE);
-        c.fillStyle = '#5b21b6'; c.fillRect(x, y + TILE - 6, TILE, 6); c.fillRect(x + TILE - 6, y, 6, TILE);
+        // dinding + highlight 3D (warna per stage)
+        c.fillStyle = pal.wall; c.fillRect(x, y, TILE, TILE);
+        c.fillStyle = pal.wallHi; c.fillRect(x, y, TILE, 6); c.fillRect(x, y, 6, TILE);
+        c.fillStyle = pal.wallLo; c.fillRect(x, y + TILE - 6, TILE, 6); c.fillRect(x + TILE - 6, y, 6, TILE);
+      } else if (this.lavaSet.has(id)) {
+        // lava: dasar bara gelap (animasi di _render)
+        c.fillStyle = '#7f1d1d'; c.fillRect(x, y, TILE, TILE);
+        c.fillStyle = '#450a0a';
+        c.fillRect(x + 6, y + 6, TILE - 12, TILE - 12);
+      } else if (this.iceSet.has(id)) {
+        // es: biru pucat mengkilap
+        c.fillStyle = '#bae6fd'; c.fillRect(x, y, TILE, TILE);
+        c.fillStyle = 'rgba(255,255,255,.5)';
+        c.fillRect(x + 8, y + 10, 18, 5);
+        c.fillRect(x + 26, y + 28, 12, 4);
       } else {
-        // lantai pink muda / krem (papan catur halus)
-        c.fillStyle = (tx + ty) % 2 === 0 ? '#ffd9e8' : '#f7e8c3';
+        // lantai papan catur halus (warna per stage)
+        c.fillStyle = (tx + ty) % 2 === 0 ? pal.floorA : pal.floorB;
         c.fillRect(x, y, TILE, TILE);
       }
       if (this.arena.water.has(id)) {
@@ -614,6 +730,64 @@ class Race {
         c.quadraticCurveTo(x + 16, wy - 6, x + 24, wy);
         c.quadraticCurveTo(x + 32, wy + 6, x + 40, wy); c.stroke();
       }
+    }
+
+    // ---- RINTANGAN BARU ----
+    // lava: bara berdenyut + gelembung
+    for (const id of this.lavaSet) {
+      const tx = id % AW, ty = (id / AW) | 0;
+      const x = this.ax + tx * TILE, y = this.ay + ty * TILE;
+      const pulse = 0.5 + 0.5 * Math.sin(t * 5 + tx * 1.3 + ty * 2.1);
+      c.fillStyle = 'rgba(249,115,22,' + (0.45 + pulse * 0.4).toFixed(2) + ')';
+      c.fillRect(x + 4, y + 4, TILE - 8, TILE - 8);
+      c.fillStyle = '#fde047';
+      const bx = x + 10 + ((tx * 37 + ty * 17 + t * 30) % (TILE - 20));
+      const by = y + TILE - 8 - ((t * 45 + tx * 13) % (TILE - 10));
+      c.fillRect(bx, by, 5, 5);
+    }
+    // portal: cincin ungu berputar
+    for (const p of this.portals) {
+      for (const pp of [[p.ax, p.ay], [p.bx, p.by]]) {
+        const px = pp[0], py = pp[1];
+        c.fillStyle = 'rgba(168,85,247,.22)';
+        c.beginPath(); c.arc(px, py, 21, 0, 6.283); c.fill();
+        c.lineWidth = 5; c.strokeStyle = '#a855f7';
+        c.beginPath(); c.arc(px, py, 17, p.t, p.t + 4.2); c.stroke();
+        c.lineWidth = 3; c.strokeStyle = '#e9d5ff';
+        c.beginPath(); c.arc(px, py, 11, -p.t * 1.4, -p.t * 1.4 + 3.6); c.stroke();
+      }
+    }
+    // bumper: kubah kuning memantul
+    for (const bp of this.bumpers) {
+      const pr = bp.r + bp.pulse * 7;
+      const bg = c.createRadialGradient(bp.x - 4, bp.y - 4, 2, bp.x, bp.y, pr);
+      bg.addColorStop(0, '#fef9c3'); bg.addColorStop(1, '#eab308');
+      c.fillStyle = bg;
+      c.beginPath(); c.arc(bp.x, bp.y, pr, 0, 6.283); c.fill();
+      c.lineWidth = 3; c.strokeStyle = '#713f12'; c.stroke();
+    }
+    // spinner: palang berputar
+    for (const sp of this.spinners) {
+      c.save(); c.translate(sp.x, sp.y); c.rotate(sp.ang);
+      const hl = sp.len / 2;
+      c.fillStyle = '#1c1c22'; c.fillRect(-hl - 4, -13, sp.len + 8, 26);
+      c.fillStyle = '#e041d8';
+      for (let sx = -hl; sx < hl; sx += 24) c.fillRect(sx, -13, 12, 26);
+      c.fillStyle = '#a1a1aa';
+      c.beginPath(); c.arc(0, 0, 10, 0, 6.283); c.fill();
+      c.lineWidth = 3; c.strokeStyle = '#1c1c22'; c.stroke();
+      c.restore();
+    }
+    // tornado: spiral biru
+    for (const tn of this.tornadoes) {
+      c.lineWidth = 5; c.strokeStyle = 'rgba(125,211,252,.7)';
+      for (let rr = 0; rr < 3; rr++) {
+        const rad = tn.r * (0.35 + rr * 0.3);
+        const a0 = tn.t * (1 + rr * 0.4);
+        c.beginPath(); c.arc(tn.x, tn.y, rad, a0, a0 + 4.4); c.stroke();
+      }
+      c.fillStyle = 'rgba(125,211,252,.25)';
+      c.beginPath(); c.arc(tn.x, tn.y, tn.r * 0.3, 0, 6.283); c.fill();
     }
 
     // X permanen (korban boss)
