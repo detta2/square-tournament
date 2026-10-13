@@ -94,6 +94,8 @@ const Sfx = (function () {
     },
     // klik tombol UI
     click: function () { tone(1250, 0.045, 'square', 0.22); },
+    // geyser: gemuruh peringatan
+    rumble: function () { tone(90, 0.5, 'sawtooth', 0.3, 45); },
   };
 
   function initButton() {

@@ -150,17 +150,18 @@ function genMazeSafe(channels) {
 const PAL_DEFAULT = { wall: '#7c3aed', wallHi: '#a78bfa', wallLo: '#5b21b6', floorA: '#ffd9e8', floorB: '#f7e8c3' };
 
 const ARENAS = [
-  { name: 'Kawah Lava', bosses: 1,
+  { name: 'Kawah Lava', bosses: 1, bossSpeed: 112,
+    geysers: [[8, 4], [10, 5], [7, 6]],
     palette: { wall: '#991b1b', wallHi: '#ef4444', wallLo: '#450a0a', floorA: '#33231a', floorB: '#2a1c14' },
     map: [
       "####################",
       "#..................#",
-      "#..LLL......LLL....#",
-      "#..LLL......LLL..FF#",
+      "#..LLLL....LLLL....#",
+      "#..LLLL....LLLL..FF#",
       "#......B....B....FF#",
-      "#..LLL......LLL..FF#",
-      "#..LLL......LLL....#",
-      "#..................#",
+      "#..LLLL....LLLL..FF#",
+      "#..LLLL....LLLL....#",
+      "#.....LLL..LLL.....#",
       "###GG######GG###GG##",
       "#..................#",
       "#......SSSSSS......#",
@@ -273,7 +274,8 @@ function parseArena(def) {
       r: TILE * Math.sqrt(tornadoTiles.length) * 0.55,
     });
   }
-  return { name: def.name, bosses: def.bosses, palette: def.palette || PAL_DEFAULT,
+  return { name: def.name, bosses: def.bosses, bossSpeed: def.bossSpeed,
+    geysers: def.geysers || [], palette: def.palette || PAL_DEFAULT,
     grid: grid, water: water, spawns: spawns, finish: finish, gates: gates,
     lava: lava, ice: ice, portals: portals, bumpers: bumpers,
     spinners: spinners, tornadoes: tornadoes, W: W, H: H };

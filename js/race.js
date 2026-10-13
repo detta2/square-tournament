@@ -71,6 +71,17 @@ class Race {
       x: this.ax + tn.tx * TILE + TILE / 2, y: this.ay + tn.ty * TILE + TILE / 2,
       r: tn.r, t: Math.random() * 6.28,
     }));
+    // titik tengah tile lava (untuk AI hindari lava)
+    this.lavaPts = [];
+    for (const t of this.lavaSet) {
+      this.lavaPts.push({ x: tileCX(this.ax, t % AW), y: tileCY(this.ay, (t / AW) | 0) });
+    }
+    // GEYSER lava: ventilasi yg meletus berkala (ada tanda peringatan!)
+    this.geysers = (this.arena.geysers || []).map((gp) => ({
+      x: this.ax + gp[0] * TILE + TILE / 2, y: this.ay + gp[1] * TILE + TILE / 2,
+      t: Math.random() * 2, state: 'idle',
+    }));
+    this.bossSpeed = this.arena.bossSpeed || BOSS_SPEED;
 
     // --- FLOOD GATE: gerbang G disegel saat gate-mode; buka saat meteran penuh ---
     this.gateMode = opts.gate !== undefined ? opts.gate : Math.random() < 0.35;
@@ -108,7 +119,7 @@ class Race {
       this.bosses.push({
         x: bp.x, y: bp.y, vx: 0, vy: 0, r: 26,
         wob: Math.random() * 6, wtx: bp.x, wty: bp.y,
-        retarget: 1 + Math.random() * 2, chaseT: 0, restT: 0, name: 'GARGANT'
+        retarget: 1 + Math.random() * 2, chaseT: 0, restT: 0, tgt: null, name: 'GARGANT'
       });
     }
 
@@ -218,6 +229,34 @@ class Race {
     for (const bp of this.bumpers) bp.pulse = Math.max(0, bp.pulse - dt * 3);
     for (const tn of this.tornadoes) tn.t += dt * 3;
     for (const p of this.portals) p.t += dt * 2;
+    // GEYSER: idle 2.5 dtk -> waspada 1 dtk (ada tanda!) -> meletus 0.7 dtk
+    for (const gy of this.geysers) {
+      gy.t += dt;
+      if (gy.state === 'idle' && gy.t > 2.5) {
+        gy.state = 'warn'; gy.t = 0;
+        this._sfx('rumble');
+      } else if (gy.state === 'warn' && gy.t > 1.0) {
+        gy.state = 'fire'; gy.t = 0;
+        this._sfx('burn');
+        this.shake = Math.max(this.shake, 5);
+      } else if (gy.state === 'fire') {
+        if (Math.random() < dt * 40) {
+          this._spawnP(gy.x + (Math.random() - 0.5) * 30, gy.y,
+            (Math.random() - 0.5) * 60, -120 - Math.random() * 80,
+            Math.random() < 0.5 ? '#f97316' : '#fde047', 0.6, 4 + Math.random() * 4, -50);
+        }
+        for (const u of this.units) {
+          if (!u.alive || u.burnT > 0) continue;
+          if (Math.hypot(u.x - gy.x, u.y - gy.y) < 42) {
+            u.burnT = 1.0;
+            this._explode(u.x, u.y, '#ff7b1c', 10);
+            this.feed.push({ text: '🌋 ' + u.name + ' kena geyser!', t: this.time });
+            if (this.feed.length > 8) this.feed.shift();
+          }
+        }
+        if (gy.t > 0.7) { gy.state = 'idle'; gy.t = 0; }
+      }
+    }
 
     // flood gate: isi meteran, penuh -> dinding kebuka!
     if (this.gate && !this.gate.open) {
@@ -326,6 +365,23 @@ class Race {
       u.retarget = 0.5;
     } else if (u.retarget <= 0 || Math.hypot(tdx, tdy) < 36) this._pickTarget(u);
 
+    // AI PINTAR: hindari rintangan — lava, geyser (waspada/meletus), spinner
+    let hdx = 0, hdy = 0;
+    for (const lp of this.lavaPts) {
+      const hx = u.x - lp.x, hy = u.y - lp.y, hd = Math.hypot(hx, hy);
+      if (hd < 110 && hd > 1) { const w = 1 - hd / 110; hdx += (hx / hd) * w; hdy += (hy / hd) * w; }
+    }
+    for (const gy of this.geysers) {
+      if (gy.state === 'warn' || gy.state === 'fire') {
+        const hx = u.x - gy.x, hy = u.y - gy.y, hd = Math.hypot(hx, hy);
+        if (hd < 130 && hd > 1) { const w = (1 - hd / 130) * 1.6; hdx += (hx / hd) * w; hdy += (hy / hd) * w; }
+      }
+    }
+    for (const sp of this.spinners) {
+      const hx = u.x - sp.x, hy = u.y - sp.y, hd = Math.hypot(hx, hy);
+      if (hd < 105 && hd > 1) { const w = 1 - hd / 105; hdx += (hx / hd) * w; hdy += (hy / hd) * w; }
+    }
+
     let dx = u.wtx - u.x, dy = u.wty - u.y;
     const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
     if (panic) {
@@ -333,6 +389,13 @@ class Race {
       dx = dx * 0.3 + (pdx / pl) * 0.7;
       dy = dy * 0.3 + (pdy / pl) * 0.7;
       const nl = Math.hypot(dx, dy) || 1; dx /= nl; dy /= nl;
+    }
+    const hl = Math.hypot(hdx, hdy);
+    if (hl > 0.05) {
+      // hindari rintangan tapi tetap condong ke target (70% hindar / 30% target)
+      dx = dx * 0.3 + (hdx / hl) * 0.7;
+      dy = dy * 0.3 + (hdy / hl) * 0.7;
+      const nl2 = Math.hypot(dx, dy) || 1; dx /= nl2; dy /= nl2;
     }
 
     // susur dinding: kalau depan padat, geser sepanjang sumbu yang bebas
@@ -413,27 +476,38 @@ class Race {
     if (u.blink < -0.12) u.blink = 2 + Math.random() * 3;
   }
 
-  /* ============ BOSS API (GARGANT) ============
-   * Kotak oranye berkeliaran; kejar pembalap terdekat dalam 350px.
+  /* ============ BOSS API (GARGANT) — PINTAR ============
+   * Kotak oranye pemburu. Peningkatan:
+   * - PREDIKSI: membidik 0.5 detik ke depan (motong jalur, bukan ngekor)
+   * - Prioritaskan PEMIMPIN (terdekat finis) dalam jangkauan
+   * - Kalau 2 boss: bagi target, tidak mengejar yg sama
    * Sentuh -> bakar 1 detik -> mati (X permanen + kill feed). */
   _updateBosses(dt) {
+    const SPD = this.bossSpeed;
     for (const b of this.bosses) {
       b.wob += dt;
-      // target: pembalap hidup terdekat — tapi saat overtime boss tidak mengejar
-      let tgt = null, td = 1e9;
+      // target: prioritaskan pemimpin — tapi saat overtime boss tidak mengejar
+      let tgt = null, best = 1e9;
       const overtime = this.time > 75;
       if (!overtime) {
         for (const u of this.units) {
           if (!u.alive) continue;
+          if (this.bosses.some((o) => o !== b && o.tgt === u)) continue; // sudah dikejar boss lain
           const d = Math.hypot(u.x - b.x, u.y - b.y);
-          if (d < td) { td = d; tgt = u; }
+          if (d > 380) continue;
+          const df = Math.hypot(u.x - this.finCX, u.y - this.finCY);
+          const score = d * 0.6 + df * 0.4;
+          if (score < best) { best = score; tgt = u; }
         }
       }
-      if (tgt && td < 350 && b.restT <= 0) {
+      b.tgt = tgt;
+      if (tgt && b.restT <= 0) {
         // kejar! tapi maksimal 7 detik, lalu menyerah & istirahat 4 detik
         // (biar tidak eternal chase -> heat macet)
         if (b.chaseT <= 0) b.chaseT = 7;
-        b.wtx = tgt.x; b.wty = tgt.y;
+        // PREDIKSI: bidik titik potong 0.5 dtk ke depan
+        b.wtx = tgt.x + tgt.vx * 0.5;
+        b.wty = tgt.y + tgt.vy * 0.5;
         b.chaseT -= dt;
         if (b.chaseT <= 0) { b.chaseT = 0; b.restT = 4; }
       } else {
@@ -449,8 +523,8 @@ class Race {
       // gerak lurus + pantul dinding
       const dx = b.wtx - b.x, dy = b.wty - b.y, d = Math.hypot(dx, dy) || 1;
       const k = Math.min(1, 2.5 * dt);
-      b.vx += ((dx / d) * BOSS_SPEED - b.vx) * k;
-      b.vy += ((dy / d) * BOSS_SPEED - b.vy) * k;
+      b.vx += ((dx / d) * SPD - b.vx) * k;
+      b.vy += ((dy / d) * SPD - b.vy) * k;
       b.x += b.vx * dt; b.y += b.vy * dt;
       this._collideTiles(b);
       // sentuh pembalap -> bakar!
@@ -788,6 +862,31 @@ class Race {
       }
       c.fillStyle = 'rgba(125,211,252,.25)';
       c.beginPath(); c.arc(tn.x, tn.y, tn.r * 0.3, 0, 6.283); c.fill();
+    }
+    // geyser: ventilasi + tanda waspada + letusan
+    for (const gy of this.geysers) {
+      c.fillStyle = '#1c0a0a';
+      c.beginPath(); c.ellipse(gy.x, gy.y, 12, 8, 0, 0, 6.283); c.fill();
+      c.lineWidth = 2; c.strokeStyle = '#f97316'; c.stroke();
+      if (gy.state === 'warn') {
+        const p = Math.min(1, gy.t / 1.0);
+        c.lineWidth = 4;
+        c.strokeStyle = 'rgba(249,115,22,' + (0.4 + p * 0.6).toFixed(2) + ')';
+        c.beginPath(); c.arc(gy.x, gy.y, 14 + p * 26, 0, 6.283); c.stroke();
+        c.fillStyle = '#fff';
+        c.font = 'bold 22px monospace'; c.textAlign = 'center'; c.textBaseline = 'middle';
+        c.fillText('!', gy.x, gy.y - 26);
+        c.textAlign = 'left'; c.textBaseline = 'alphabetic';
+      } else if (gy.state === 'fire') {
+        for (let i = 0; i < 5; i++) {
+          const fx = gy.x - 18 + i * 9 + Math.sin(t * 30 + i * 2) * 4;
+          const fh = 34 + Math.sin(t * 40 + i * 1.7) * 10;
+          c.fillStyle = i % 2 ? '#fde047' : '#f97316';
+          c.beginPath();
+          c.moveTo(fx - 7, gy.y + 4); c.lineTo(fx, gy.y - fh); c.lineTo(fx + 7, gy.y + 4);
+          c.closePath(); c.fill();
+        }
+      }
     }
 
     // X permanen (korban boss)
