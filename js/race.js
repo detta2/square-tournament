@@ -83,10 +83,18 @@ class Race {
     }));
     this.bossSpeed = this.arena.bossSpeed || BOSS_SPEED;
 
+    // --- TEMBOK PECAH 'D': dikeroyok rame-rame, HP bersama ±40 senggolan ---
+    this.breakSet = new Set(this.arena.breakable || []);
+    this.breakWalls = this.breakSet.size
+      ? [{ tiles: new Set(this.breakSet), hp: 40, maxHp: 40, broken: false }]
+      : [];
+
     // --- FLOOD GATE: gerbang G disegel saat gate-mode; buka saat meteran penuh ---
     this.gateMode = opts.gate !== undefined ? opts.gate : Math.random() < 0.35;
     this.gateTiles = this.arena.gates.slice();
     this.gate = null;
+    // tembok pecah MENGGANTIKAN segel timed: awal langsung aksi rame-rame, bukan nunggu
+    if (this.breakWalls.length) this.gateMode = false;
     if (this.gateMode && this.gateTiles.length > 0) {
       for (const t of this.gateTiles) this.arena.grid[t] = 2;
       this.gate = { fill: 0, open: false, rate: 1 / 9 };
@@ -339,8 +347,9 @@ class Race {
     }
 
     // panik: boss dekat (<120px) -> kabur menjauhinya
+    // (selama tembok pecah masih berdiri: fokus ngeroyok tembok, boss tak terjangkau)
     let pdx = 0, pdy = 0, panic = false;
-    for (const b of this.bosses) {
+    if (!this._wallStanding()) for (const b of this.bosses) {
       const dx = u.x - b.x, dy = u.y - b.y, d = Math.hypot(dx, dy);
       if (d < 120 && d > 0.001) { panic = true; pdx += dx / d; pdy += dy / d; }
     }
@@ -456,7 +465,7 @@ class Race {
     u.vy += (dy * sp - u.vy) * k;
     u.x += u.vx * dt; u.y += u.vy * dt;
 
-    this._collideTiles(u);   // memantul di dinding
+    this._collideTiles(u, true);   // memantul di dinding (+ senggol tembok pecah)
     this._obstacles(u, dt);  // bumper / spinner / portal
 
     // anti-stuck sederhana: kalau 2.5 dtk cuma gerak <10px, tendang acak
@@ -474,6 +483,7 @@ class Race {
 
     u.blink -= dt;
     if (u.blink < -0.12) u.blink = 2 + Math.random() * 3;
+    u.bumpCd = Math.max(0, (u.bumpCd || 0) - dt);   // cooldown senggol tembok
   }
 
   /* ============ BOSS API (GARGANT) — PINTAR ============
@@ -489,7 +499,8 @@ class Race {
       // target: prioritaskan pemimpin — tapi saat overtime boss tidak mengejar
       let tgt = null, best = 1e9;
       const overtime = this.time > 75;
-      if (!overtime) {
+      const walled = this._wallStanding();   // tembok berdiri: boss menunggu di baliknya
+      if (!overtime && !walled) {
         for (const u of this.units) {
           if (!u.alive) continue;
           if (this.bosses.some((o) => o !== b && o.tgt === u)) continue; // sudah dikejar boss lain
@@ -526,7 +537,7 @@ class Race {
       b.vx += ((dx / d) * SPD - b.vx) * k;
       b.vy += ((dy / d) * SPD - b.vy) * k;
       b.x += b.vx * dt; b.y += b.vy * dt;
-      this._collideTiles(b);
+      this._collideTiles(b, false);
       // sentuh pembalap -> bakar!
       for (const u of this.units) {
         if (!u.alive || u.burnT > 0) continue;
@@ -552,7 +563,7 @@ class Race {
     this.shake = Math.max(this.shake, 9);
   }
 
-  _collideTiles(e) {
+  _collideTiles(e, isRacer) {
     const AW = this.arena.W, AH = this.arena.H;
     const r = e.r, g = this.arena.grid;
     const x0 = Math.max(0, Math.floor((e.x - r - this.ax) / TILE));
@@ -560,13 +571,19 @@ class Race {
     const y0 = Math.max(0, Math.floor((e.y - r - this.ay) / TILE));
     const y1 = Math.min(AH - 1, Math.floor((e.y + r - this.ay) / TILE));
     for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) {
-      if (g[ty * AW + tx] === 0) continue;   // 1 = dinding, 2 = gerbang terkunci
+      const ti = ty * AW + tx;
+      if (g[ti] === 0) continue;   // 1 = dinding, 2 = gerbang terkunci
       const cx = this.ax + tx * TILE, cy = this.ay + ty * TILE;
       const nx = Math.max(cx, Math.min(e.x, cx + TILE));
       const ny = Math.max(cy, Math.min(e.y, cy + TILE));
       let dx = e.x - nx, dy = e.y - ny;
       const d2 = dx * dx + dy * dy;
       if (d2 >= r * r) continue;
+      // TEMBOK PECAH: senggolan pembalap menggerogoti HP bersama
+      if (isRacer && this.breakSet.has(ti)) {
+        const wl = this.breakWalls[0];
+        if (wl && !wl.broken) this._hitBreakWall(wl, e);
+      }
       let d = Math.sqrt(d2), ux, uy;
       if (d > 0.001) { ux = dx / d; uy = dy / d; } else { ux = 0; uy = -1; d = 0.001; }
       e.x += ux * (r - d); e.y += uy * (r - d);
@@ -580,6 +597,32 @@ class Race {
         }
       }
     }
+  }
+  /* ============ TEMBOK PECAH (kerja sama!) ============
+   * HP dipakai BERSAMA seluruh tembok: tiap senggolan pembalap -1.
+   * Makin banyak yg ngeroyok, makin cepat hancur. Hancur -> jadi jalan. */
+  _wallStanding() { return this.breakWalls.some((w) => !w.broken); }
+  _hitBreakWall(wl, u) {
+    if ((u.bumpCd || 0) > 0 || wl.broken) return;
+    u.bumpCd = 0.35;   // tiap pembalap maks ~3 senggolan/dtk
+    wl.hp--;
+    this._sfx('crack');
+    this._spawnP(u.x + (Math.random() - 0.5) * 20, u.y - 12,
+      (Math.random() - 0.5) * 140, -80 - Math.random() * 60,
+      Math.random() < 0.5 ? '#c9a06a' : '#8a6844', 0.5, 3 + Math.random() * 3, -60);
+    this.shake = Math.max(this.shake, 2);
+    if (wl.hp <= 0) this._shatterWall(wl);
+  }
+  _shatterWall(wl) {
+    wl.broken = true;
+    const AW = this.arena.W;
+    for (const t of wl.tiles) {
+      this.arena.grid[t] = 0;   // jadi jalan
+      this._explode(tileCX(this.ax, t % AW), tileCY(this.ay, (t / AW) | 0), '#c9a06a', 8);
+    }
+    this._sfx('explode');
+    this.shake = Math.max(this.shake, 8);
+    this.showBanner('TEMBOK HANCUR!', 'gaspol ke finis!');
   }
 
   /* ============ RINTANGAN: bumper / spinner / portal ============ */
@@ -740,8 +783,8 @@ class Race {
 
     for (let ty = 0; ty < AH; ty++) for (let tx = 0; tx < AW; tx++) {
       const x = this.ax + tx * TILE, y = this.ay + ty * TILE, id = ty * AW + tx;
-      if (g[id] === 1) {
-        // dinding + highlight 3D (warna per stage)
+      if (g[id] === 1 && !this.breakSet.has(id)) {
+        // dinding + highlight 3D (warna per stage) — tembok pecah 'D' digambar dinamis
         c.fillStyle = pal.wall; c.fillRect(x, y, TILE, TILE);
         c.fillStyle = pal.wallHi; c.fillRect(x, y, TILE, 6); c.fillRect(x, y, 6, TILE);
         c.fillStyle = pal.wallLo; c.fillRect(x, y + TILE - 6, TILE, 6); c.fillRect(x + TILE - 6, y, 6, TILE);
@@ -791,6 +834,42 @@ class Race {
     c.drawImage(this.staticLayer, 0, 0);
     const t = performance.now() / 1000;
     const AW = this.arena.W;
+
+    // TEMBOK PECAH: blok bata retak + HP bar (makin retak makin hancur)
+    for (const wl of this.breakWalls) {
+      if (wl.broken) continue;
+      const dmg = 1 - wl.hp / wl.maxHp;
+      const cracks = dmg < 0.34 ? 1 : dmg < 0.67 ? 2 : 3;
+      for (const id of wl.tiles) {
+        const tx = id % AW, ty = (id / AW) | 0;
+        const x = this.ax + tx * TILE, y = this.ay + ty * TILE;
+        c.fillStyle = '#b08a5e'; c.fillRect(x + 1, y + 1, TILE - 2, TILE - 2);
+        c.fillStyle = '#c9a06a'; c.fillRect(x + 1, y + 1, TILE - 2, 6);
+        c.fillStyle = '#6e5236'; c.fillRect(x + 1, y + TILE - 7, TILE - 2, 6);
+        c.strokeStyle = 'rgba(0,0,0,.25)'; c.lineWidth = 2;
+        c.beginPath(); c.moveTo(x + 1, y + TILE / 2); c.lineTo(x + TILE - 1, y + TILE / 2); c.stroke();
+        // retakan (posisi tetap per tile)
+        c.strokeStyle = '#3d2b1a'; c.lineWidth = 2;
+        const seed = id % 5;
+        for (let k = 0; k < cracks; k++) {
+          const cxp = x + 8 + ((seed * 13 + k * 17) % 30);
+          c.beginPath();
+          c.moveTo(cxp, y + 4);
+          c.lineTo(cxp + 6 - k * 3, y + TILE / 2);
+          c.lineTo(cxp - 4 + k * 2, y + TILE - 4);
+          c.stroke();
+        }
+      }
+      // HP bar bersama di atas tembok
+      const bx = this.ax + TILE, bw = (AW - 2) * TILE, by = this.ay + 7 * TILE - 18;
+      const frac = Math.max(0, wl.hp / wl.maxHp);
+      c.fillStyle = 'rgba(0,0,0,.55)'; c.fillRect(bx, by, bw, 10);
+      c.fillStyle = frac > 0.5 ? '#4ade80' : frac > 0.25 ? '#facc15' : '#ef4444';
+      c.fillRect(bx + 2, by + 2, (bw - 4) * frac, 6);
+      c.fillStyle = '#fff'; c.font = 'bold 11px monospace'; c.textAlign = 'center';
+      c.fillText('🧱 ' + wl.hp, bx + bw / 2, by - 4);
+      c.textAlign = 'left';
+    }
 
     // air animasi (zona lambat)
     for (const id of this.arena.water) {

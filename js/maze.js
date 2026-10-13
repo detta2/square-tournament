@@ -145,6 +145,7 @@ function genMazeSafe(channels) {
  *   'P'/'Q' portal (teleport ke pasangan sehuruf)
  *   'B' bumper (mental kuat)   'X' spinner (palang berputar)
  *   'T' tornado (pusaran menyedot)
+ *   'D' TEMBOK PECAH: dikeroyok rame-rame (±40 senggolan, HP bersama) baru hancur
  * Baris 8 = dinding + gerbang G, baris 9-10 = kandang spawn.
  * ================================================================ */
 const PAL_DEFAULT = { wall: '#7c3aed', wallHi: '#a78bfa', wallLo: '#5b21b6', floorA: '#ffd9e8', floorB: '#f7e8c3' };
@@ -161,7 +162,7 @@ const ARENAS = [
       "#......B....B....FF#",
       "#..LLLL....LLLL..FF#",
       "#..LLLL....LLLL....#",
-      "#.....LLL..LLL.....#",
+      "#DDDDDDDDDDDDDDDDDD#",
       "###GG######GG###GG##",
       "#..................#",
       "#......SSSSSS......#",
@@ -177,7 +178,7 @@ const ARENAS = [
       "#......X.........FF#",
       "#..IIIII...IIIII.FF#",
       "#..IIIII...IIIII...#",
-      "#..................#",
+      "#DDDDDDDDDDDDDDDDDD#",
       "###GG######GG###GG##",
       "#..................#",
       "#......SSSSSS......#",
@@ -193,7 +194,7 @@ const ARENAS = [
       "#.....B.....B....FF#",
       "#.Q...........P..FF#",
       "#.Q...........P....#",
-      "#..................#",
+      "#DDDDDDDDDDDDDDDDDD#",
       "###GG######GG###GG##",
       "#..................#",
       "#......SSSSSS......#",
@@ -208,8 +209,8 @@ const ARENAS = [
       "#......TTT.......FF#",
       "#..W...TTT...W...FF#",
       "#......TTT.......FF#",
-      "#......TTT.........#",
-      "#.....X............#",
+      "#.....XTTT.........#",
+      "#DDDDDDDDDDDDDDDDDD#",
       "###GG######GG###GG##",
       "#..................#",
       "#......SSSSSS......#",
@@ -225,7 +226,7 @@ const ARENAS = [
       "#.....BB....BB...FF#",
       "#..LLL......LLL..FF#",
       "#..LLL......LLL....#",
-      "#..................#",
+      "#DDDDDDDDDDDDDDDDDD#",
       "###GG######GG###GG##",
       "#..................#",
       "#......SSSSSS......#",
@@ -237,12 +238,13 @@ function parseArena(def) {
   const H = def.map.length, W = def.map[0].length;
   const grid = new Uint8Array(W * H);
   const water = new Set(), spawns = [], finish = [], gates = [];
-  const lava = new Set(), ice = new Set();
+  const lava = new Set(), ice = new Set(), breakable = [];
   const portalTiles = { P: [], Q: [] };
   const bumpers = [], spinners = [], tornadoTiles = [];
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const ch = def.map[y][x], id = y * W + x;
     if (ch === '#') grid[id] = 1;
+    else if (ch === 'D') { grid[id] = 1; breakable.push(id); }  // tembok pecah (solid sampai hancur)
     else {
       grid[id] = 0;
       if (ch === 'W') water.add(id);
@@ -277,7 +279,7 @@ function parseArena(def) {
   return { name: def.name, bosses: def.bosses, bossSpeed: def.bossSpeed,
     geysers: def.geysers || [], palette: def.palette || PAL_DEFAULT,
     grid: grid, water: water, spawns: spawns, finish: finish, gates: gates,
-    lava: lava, ice: ice, portals: portals, bumpers: bumpers,
+    lava: lava, ice: ice, portals: portals, bumpers: bumpers, breakable: breakable,
     spinners: spinners, tornadoes: tornadoes, W: W, H: H };
 }
 

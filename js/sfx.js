@@ -94,6 +94,8 @@ const Sfx = (function () {
     },
     // klik tombol UI
     click: function () { tone(1250, 0.045, 'square', 0.22); },
+    // tembok pecah: senggolan
+    crack: function () { noise(0.09, 0.5, 700); },
     // geyser: gemuruh peringatan
     rumble: function () { tone(90, 0.5, 'sawtooth', 0.3, 45); },
   };
