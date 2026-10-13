@@ -59,6 +59,7 @@ function newTournament() {
     { key: 'F',   label: 'FINAL',             get: () => [T.w.SF1, T.w.SF2] },
   ];
   stopChampConfetti();
+  Rec.reset();
   $('champion').classList.add('hidden');
   renderBracket();
   showStage('bracket');
@@ -114,6 +115,86 @@ function showBanner(main, sub, ms) {
 }
 function hideBanner() { clearTimeout(showBanner._t); banner.classList.add('hidden'); }
 
+/* ---------- PEREKAM VIDEO (untuk konten FB) ----------
+ * Alur: ketuk ⏺ REKAM (armed) -> ketuk MULAI TURNAMEN -> rekaman jalan
+ * otomatis -> berhenti sendiri saat CHAMPION muncul -> ketuk UNDUH.
+ * Video = isi canvas (arena + banner + kill feed) + audio SFX game. */
+const Rec = {
+  mr: null, stream: null, chunks: [], usedMime: 'video/webm',
+  t0: 0, timerId: 0, armed: false,
+  mime() {
+    // mp4 diutamakan (langsung bisa upload ke FB); fallback ke webm
+    const cands = ['video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
+    for (const c of cands) {
+      try { if (window.MediaRecorder && MediaRecorder.isTypeSupported(c)) return c; } catch (e) {}
+    }
+    return '';
+  },
+  start() {
+    if (this.mr || typeof window === 'undefined') return;
+    try {
+      if (!cv.captureStream || !window.MediaRecorder) throw new Error('tidak didukung');
+      const tracks = cv.captureStream(30).getVideoTracks().slice();
+      let as = null;
+      try { as = (typeof Sfx !== 'undefined') ? Sfx.getCaptureStream() : null; } catch (e) {}
+      if (as) for (const t of as.getAudioTracks()) tracks.push(t);
+      this.stream = new MediaStream(tracks);
+      this.chunks = [];
+      const mime = this.mime();
+      this.usedMime = mime || 'video/webm';
+      this.mr = new MediaRecorder(this.stream, mime ? { mimeType: mime, videoBitsPerSecond: 8000000 } : undefined);
+      this.mr.ondataavailable = (e) => { if (e.data && e.data.size) this.chunks.push(e.data); };
+      this.mr.onstop = () => this._done();
+      this.mr.start(1000);
+      this.t0 = Date.now();
+      this.timerId = setInterval(() => {
+        const s = Math.floor((Date.now() - this.t0) / 1000);
+        $('rec-time').textContent =
+          String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+      }, 500);
+      $('rec-ind').classList.remove('hidden');
+      $('btn-rec').classList.add('recording');
+      $('btn-rec').classList.remove('armed');
+      $('btn-rec').textContent = 'STOP ⏹';
+      $('btn-dl').classList.add('hidden');
+    } catch (e) {
+      this.mr = null; this.armed = false;
+      $('btn-rec').classList.remove('armed');
+      $('btn-rec').textContent = '⏺ REKAM';
+      showBanner('REKAM GAGAL', 'browser tidak mendukung');
+    }
+  },
+  stop() {
+    if (!this.mr) return;
+    try { this.mr.stop(); } catch (e) {}
+    clearInterval(this.timerId); this.timerId = 0;
+    if (this.stream) for (const t of this.stream.getTracks()) { try { t.stop(); } catch (e) {} }
+    this.mr = null; this.armed = false;
+    $('rec-ind').classList.add('hidden');
+    $('btn-rec').classList.remove('recording');
+    $('btn-rec').textContent = '⏺ REKAM';
+  },
+  _done() {
+    const blob = new Blob(this.chunks, { type: this.usedMime });
+    const url = URL.createObjectURL(blob);
+    const a = $('btn-dl');
+    if (a.href) { try { URL.revokeObjectURL(a.href); } catch (e) {} }
+    a.href = url;
+    const d = new Date(), p2 = (n) => String(n).padStart(2, '0');
+    const ext = this.usedMime.indexOf('mp4') >= 0 ? 'mp4' : 'webm';
+    a.download = 'square-tournament-' + d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate()) +
+      '-' + p2(d.getHours()) + p2(d.getMinutes()) + '.' + ext;
+    a.classList.remove('hidden');
+    showBanner('REKAMAN SELESAI', 'ketuk tombol UNDUH');
+  },
+  reset() {
+    const a = $('btn-dl');
+    if (a.getAttribute('href')) { try { URL.revokeObjectURL(a.href); } catch (e) {} }
+    a.removeAttribute('href');
+    a.classList.add('hidden');
+  },
+};
+
 function fmtT(s) {
   const m = Math.floor(s / 60), sec = Math.floor(s % 60), d = Math.floor((s % 1) * 10);
   return (m < 10 ? '0' : '') + m + ':' + (sec < 10 ? '0' : '') + sec + '.' + d;
@@ -154,9 +235,12 @@ function playHeat() {
     },
   });
   T.race.start();
+  // rekaman mulai otomatis kalau user sudah mengaktifkan tombol REKAM
+  if (Rec.armed && !Rec.mr) Rec.start();
 }
 
 function showChampion() {
+  if (Rec.mr) Rec.stop();   // rekaman berhenti sendiri saat juara muncul
   const w = T.w.F;
   $('champ-chip').innerHTML = chipHTML(w);
   showStage('champion');
@@ -209,6 +293,14 @@ if (new URLSearchParams(location.search).get('autostart') === '1') {
   setTimeout(() => $('btn-start').click(), 400);
 }
 $('btn-again').addEventListener('click', () => { newTournament(); });
+$('btn-rec').addEventListener('click', () => {
+  if (Rec.mr) { Rec.stop(); return; }
+  Rec.armed = !Rec.armed;
+  $('btn-rec').classList.toggle('armed', Rec.armed);
+  $('btn-rec').textContent = Rec.armed ? '⏺ SIAP' : '⏺ REKAM';
+  // turnamen sedang jalan -> langsung mulai rekam
+  if (Rec.armed && T.running && T.race && !Rec.mr) Rec.start();
+});
 $('btn-speed').addEventListener('click', (e) => {
   T.speed = T.speed === 1 ? 2 : (T.speed === 2 ? 4 : 1);
   e.target.textContent = T.speed + 'x';

@@ -4,7 +4,7 @@
  * Aman dipanggil kapan saja: tidak error kalau AudioContext belum diizinkan
  * (resume otomatis saat interaksi pertama). */
 const Sfx = (function () {
-  let ctx = null, master = null, muted = false;
+  let ctx = null, master = null, streamDest = null, muted = false;
 
   function ac() {
     if (ctx) return ctx;
@@ -16,6 +16,9 @@ const Sfx = (function () {
       master = ctx.createGain();
       master.gain.value = 0.35;   // volume sedang
       master.connect(ctx.destination);
+      // cabang audio untuk perekaman video (MediaRecorder)
+      try { streamDest = ctx.createMediaStreamDestination(); master.connect(streamDest); }
+      catch (e) { streamDest = null; }
     } catch (e) { ctx = null; }
     return ctx;
   }
@@ -125,6 +128,11 @@ const Sfx = (function () {
     },
     toggleMute: function () { muted = !muted; return muted; },
     get muted() { return muted; },
+    /* stream audio untuk perekam video (null kalau belum tersedia) */
+    getCaptureStream: function () {
+      const c = ac();
+      return (c && streamDest) ? streamDest.stream : null;
+    },
   };
 })();
 

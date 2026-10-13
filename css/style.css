@@ -175,3 +175,16 @@ body{
   .bnode{width:64px;}
   .conn-h{left:32px; right:32px;}
 }
+
+/* ---------- REKAM VIDEO ---------- */
+#btn-rec.armed{background:#b91c1c;}
+#btn-rec.recording{background:#dc2626; animation:blinkTag 1s steps(2) infinite;}
+#btn-dl{text-decoration:none; background:#166534;}
+#btn-dl.hidden{display:none;}
+#rec-ind{
+  display:flex; align-items:center; gap:6px;
+  font-family:'Press Start 2P',monospace; font-size:10px; color:#b91c1c;
+  background:#fff; border:3px solid #b91c1c; border-radius:6px; padding:7px 10px;
+}
+#rec-ind.hidden{display:none;}
+.rec-dot{width:12px; height:12px; border-radius:50%; background:#dc2626; animation:blinkTag 1s steps(2) infinite;}

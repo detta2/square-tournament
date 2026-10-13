@@ -18,6 +18,14 @@ class Race {
     this.onTick = opts.onTick || function () {};
     this.showBanner = opts.showBanner || function () {};
     this.speed = opts.speed || 1;
+    // cermin banner ke canvas: banner DOM tidak ikut terekam MediaRecorder,
+    // jadi teks banner digambar juga di canvas selama 2.6 dtk
+    this.canvasBanner = null;
+    const _domBanner = this.showBanner;
+    this.showBanner = (m, s) => {
+      this.canvasBanner = { main: m, sub: s || '', until: performance.now() + 2600 };
+      _domBanner(m, s);
+    };
 
     // arena acak (20x12 tile, TILE=48 -> 960x576, pas canvas 960x600)
     this.arena = genArena();
@@ -703,6 +711,25 @@ class Race {
       c.lineWidth = 8; c.strokeStyle = '#000';
       const cx = this.W / 2, cy = this.H / 2;
       c.strokeText(txt, cx, cy); c.fillStyle = col; c.fillText(txt, cx, cy);
+    }
+
+    // banner cermin (masuk ke rekaman video)
+    const cb = this.canvasBanner;
+    if (cb && performance.now() < cb.until) {
+      c.textAlign = 'center'; c.textBaseline = 'middle';
+      const cx = this.W / 2, cy = this.H / 2 - 24;
+      c.lineJoin = 'round';
+      c.font = '46px "Press Start 2P", monospace';
+      c.lineWidth = 10; c.strokeStyle = '#000';
+      c.strokeText(cb.main, cx, cy);
+      c.fillStyle = '#fff'; c.fillText(cb.main, cx, cy);
+      if (cb.sub) {
+        c.font = '18px "Press Start 2P", monospace';
+        c.lineWidth = 6;
+        c.strokeText(cb.sub, cx, cy + 52);
+        c.fillText(cb.sub, cx, cy + 52);
+      }
+      c.textAlign = 'left'; c.textBaseline = 'alphabetic';
     }
     c.restore();
   }
