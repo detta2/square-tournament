@@ -7,20 +7,15 @@ const BASE_SPEED = 100;        // px/detik — lincah, kelihatan balapan (jangan
 const BOSS_SPEED = 104;        // boss seimbang dengan pembalap -> tetap mengancam
 const HEAT_TIMEOUT = 150;      // detik sim; habis -> pemenang = yg terdekat finis
 
-/* ============ SPRITE AI (asset baru: karakter/boss/rintangan) ============
- * PNG transparan di assets/. Kalau gagal dimuat, render fallback prosedural. */
-const SPR = { chars: [], bosses: {}, obs: {} };
+/* ============ SPRITE AI (karakter baru) ============
+ * PNG transparan di assets/. Boss & rintangan balik prosedural (sprite AI dinilai jelek).
+ * Kalau sprite gagal dimuat, render fallback prosedural. */
+const SPR = { chars: [] };
 if (typeof Image !== 'undefined') {
-  const _mk = (src) => { const im = new Image(); im.src = src; return im; };
-  for (let i = 0; i < 6; i++) SPR.chars.push(_mk('assets/char' + i + '.png'));
-  SPR.bosses.lava = _mk('assets/boss-lava.png');
-  SPR.bosses.shadow = _mk('assets/boss-shadow.png');
-  SPR.bosses.ice = _mk('assets/boss-ice.png');
-  SPR.obs.spike = _mk('assets/ob-spike.png');
-  SPR.obs.bumper = _mk('assets/ob-bumper.png');
-  SPR.obs.geyser = _mk('assets/ob-geyser.png');
-  SPR.obs.portalBlue = _mk('assets/ob-portal-blue.png');
-  SPR.obs.portalOrange = _mk('assets/ob-portal-orange.png');
+  for (let i = 0; i < 6; i++) {
+    const im = new Image(); im.src = 'assets/char' + i + '.png';
+    SPR.chars.push(im);
+  }
 }
 const SPR_OK = (im) => !!(im && im.complete && im.naturalWidth);
 
@@ -919,18 +914,10 @@ class Race {
       const by = y + TILE - 8 - ((t * 45 + tx * 13) % (TILE - 10));
       c.fillRect(bx, by, 5, 5);
     }
-    // portal: sprite ring AI (biru=P, oranye=Q)
+    // portal: cincin ungu berputar (procedural — sprite AI dinilai jelek)
     for (const p of this.portals) {
-      const pim = p.k === 'Q' ? SPR.obs.portalOrange : SPR.obs.portalBlue;
       for (const pp of [[p.ax, p.ay], [p.bx, p.by]]) {
         const px = pp[0], py = pp[1];
-        if (SPR_OK(pim)) {
-          const ps = 54;
-          c.save(); c.translate(px, py); c.rotate(p.t * 0.6);
-          c.drawImage(pim, -ps / 2, -ps / 2, ps, ps);
-          c.restore();
-          continue;
-        }
         c.fillStyle = 'rgba(168,85,247,.22)';
         c.beginPath(); c.arc(px, py, 21, 0, 6.283); c.fill();
         c.lineWidth = 5; c.strokeStyle = '#a855f7';
@@ -939,34 +926,22 @@ class Race {
         c.beginPath(); c.arc(px, py, 11, -p.t * 1.4, -p.t * 1.4 + 3.6); c.stroke();
       }
     }
-    // bumper: sprite pad AI (memantul)
+    // bumper: kubah kuning memantul (procedural — sprite AI dinilai jelek)
     for (const bp of this.bumpers) {
       const pr = bp.r + bp.pulse * 7;
-      const bim = SPR.obs.bumper;
-      if (SPR_OK(bim)) {
-        const bs = pr * 2.6;
-        c.drawImage(bim, bp.x - bs / 2, bp.y - bs / 2, bs, bs);
-      } else {
-        const bg = c.createRadialGradient(bp.x - 4, bp.y - 4, 2, bp.x, bp.y, pr);
-        bg.addColorStop(0, '#fef9c3'); bg.addColorStop(1, '#eab308');
-        c.fillStyle = bg;
-        c.beginPath(); c.arc(bp.x, bp.y, pr, 0, 6.283); c.fill();
-        c.lineWidth = 3; c.strokeStyle = '#713f12'; c.stroke();
-      }
+      const bg = c.createRadialGradient(bp.x - 4, bp.y - 4, 2, bp.x, bp.y, pr);
+      bg.addColorStop(0, '#fef9c3'); bg.addColorStop(1, '#eab308');
+      c.fillStyle = bg;
+      c.beginPath(); c.arc(bp.x, bp.y, pr, 0, 6.283); c.fill();
+      c.lineWidth = 3; c.strokeStyle = '#713f12'; c.stroke();
     }
-    // spinner: sprite palang duri AI (berputar)
+    // spinner: palang berputar (procedural — sprite AI dinilai jelek)
     for (const sp of this.spinners) {
       c.save(); c.translate(sp.x, sp.y); c.rotate(sp.ang);
       const hl = sp.len / 2;
-      const sim = SPR.obs.spike;
-      if (SPR_OK(sim)) {
-        const sw = sp.len * 1.7, sh = sw * 0.55;
-        c.drawImage(sim, -sw / 2, -sh / 2, sw, sh);
-      } else {
-        c.fillStyle = '#1c1c22'; c.fillRect(-hl - 4, -13, sp.len + 8, 26);
-        c.fillStyle = '#e041d8';
-        for (let sx = -hl; sx < hl; sx += 24) c.fillRect(sx, -13, 12, 26);
-      }
+      c.fillStyle = '#1c1c22'; c.fillRect(-hl - 4, -13, sp.len + 8, 26);
+      c.fillStyle = '#e041d8';
+      for (let sx = -hl; sx < hl; sx += 24) c.fillRect(sx, -13, 12, 26);
       c.fillStyle = '#a1a1aa';
       c.beginPath(); c.arc(0, 0, 10, 0, 6.283); c.fill();
       c.lineWidth = 3; c.strokeStyle = '#1c1c22'; c.stroke();
@@ -985,14 +960,9 @@ class Race {
     }
     // geyser: ventilasi + tanda waspada + letusan
     for (const gy of this.geysers) {
-      const gim = SPR.obs.geyser;
-      if (SPR_OK(gim)) {
-        c.drawImage(gim, gy.x - 32, gy.y - 26, 64, 52);
-      } else {
-        c.fillStyle = '#1c0a0a';
-        c.beginPath(); c.ellipse(gy.x, gy.y, 12, 8, 0, 0, 6.283); c.fill();
-        c.lineWidth = 2; c.strokeStyle = '#f97316'; c.stroke();
-      }
+      c.fillStyle = '#1c0a0a';
+      c.beginPath(); c.ellipse(gy.x, gy.y, 12, 8, 0, 0, 6.283); c.fill();
+      c.lineWidth = 2; c.strokeStyle = '#f97316'; c.stroke();
       if (gy.state === 'warn') {
         const p = Math.min(1, gy.t / 1.0);
         c.lineWidth = 4;
@@ -1184,37 +1154,39 @@ class Race {
     }
   }
 
-  /* Boss: sprite AI sesuai stage (fallback: kotak api prosedural) */
+  /* Boss: kotak api oranye (procedural — sprite AI dinilai jelek) */
   _drawBoss(c, t, b) {
     const x = Math.round(b.x), y = Math.round(b.y);
     const s = b.r * 2;
     c.fillStyle = 'rgba(0,0,0,.35)';
     c.beginPath(); c.ellipse(x, y + b.r + 5, b.r, 10, 0, 0, 6.283); c.fill();
     const wob = Math.sin(b.wob * 5) * 0.05;
-    const im = SPR.bosses[this.bossSkin] || SPR.bosses.lava;
-    const ds = s * 2.6;   // sprite boss digambar besar & sangar
     c.save(); c.translate(x, y); c.rotate(wob);
-    if (SPR_OK(im)) {
-      c.drawImage(im, -ds / 2, -ds / 2, ds, ds);
-    } else {
-      c.fillStyle = '#000'; this._rr(c, -s / 2 - 3, -s / 2 - 3, s + 6, s + 6, 10); c.fill();
-      const gr = c.createLinearGradient(0, -s / 2, 0, s / 2);
-      gr.addColorStop(0, '#ffb14a'); gr.addColorStop(0.55, '#ff7b1c'); gr.addColorStop(1, '#c22e2e');
-      c.fillStyle = gr; this._rr(c, -s / 2, -s / 2, s, s, 8); c.fill();
-      // mata marah
-      c.fillStyle = '#fff'; c.fillRect(-20, -14, 15, 18); c.fillRect(5, -14, 15, 18);
-      c.fillStyle = '#ffdd44';
-      c.fillRect(-17, -9, 9, 10); c.fillRect(8, -9, 9, 10);
-      c.fillStyle = '#7a1010';
-      c.fillRect(-22, -22, 17, 6); c.fillRect(5, -22, 17, 6);   // alis miring
-      // mulut bergerigi
-      c.fillStyle = '#4a0d0d';
-      for (let i = 0; i < 4; i++) c.fillRect(-18 + i * 10, 10, 7, i % 2 ? 11 : 7);
+    c.fillStyle = '#000'; this._rr(c, -s / 2 - 3, -s / 2 - 3, s + 6, s + 6, 10); c.fill();
+    const gr = c.createLinearGradient(0, -s / 2, 0, s / 2);
+    gr.addColorStop(0, '#ffb14a'); gr.addColorStop(0.55, '#ff7b1c'); gr.addColorStop(1, '#c22e2e');
+    c.fillStyle = gr; this._rr(c, -s / 2, -s / 2, s, s, 8); c.fill();
+    // lidah api di atas kepala
+    for (let i = 0; i < 3; i++) {
+      const fx = -s / 4 + i * s / 4, fh = 10 + Math.sin(t * 18 + i * 2.1) * 5;
+      c.fillStyle = i % 2 ? '#ffdd44' : '#ff7b1c';
+      c.beginPath();
+      c.moveTo(fx - 6, -s / 2 + 2); c.lineTo(fx, -s / 2 - fh); c.lineTo(fx + 6, -s / 2 + 2);
+      c.closePath(); c.fill();
     }
+    // mata marah
+    c.fillStyle = '#fff'; c.fillRect(-20, -14, 15, 18); c.fillRect(5, -14, 15, 18);
+    c.fillStyle = '#ffdd44';
+    c.fillRect(-17, -9, 9, 10); c.fillRect(8, -9, 9, 10);
+    c.fillStyle = '#7a1010';
+    c.fillRect(-22, -22, 17, 6); c.fillRect(5, -22, 17, 6);   // alis miring
+    // mulut bergerigi
+    c.fillStyle = '#4a0d0d';
+    for (let i = 0; i < 4; i++) c.fillRect(-18 + i * 10, 10, 7, i % 2 ? 11 : 7);
     c.restore();
     c.font = 'bold 10px monospace'; c.textAlign = 'center';
-    c.fillStyle = '#000'; c.fillText('GARGANT', x + 1, y - ds / 2 - 9);
-    c.fillStyle = '#ff9a5e'; c.fillText('GARGANT', x, y - ds / 2 - 10);
+    c.fillStyle = '#000'; c.fillText('GARGANT', x + 1, y - s / 2 - 9);
+    c.fillStyle = '#ff9a5e'; c.fillText('GARGANT', x, y - s / 2 - 10);
   }
 
   _rr(c, x, y, w, h, r) {
