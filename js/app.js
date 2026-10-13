@@ -72,24 +72,54 @@ function newTournament() {
 
 function renderBracket() {
   const g = T.groups, w = T.w;
-  const sq = (r) => '<div class="bq" style="--c:' + r.color + '"><span class="face"></span></div><div class="bnm">' + r.name + '</div>';
-  const slot = (id, r) => '<div class="bslot" id="' + id + '">' + (r ? sq(r) : '<span class="q">?</span>') + '</div>';
-  const node = (id, r, label) =>
-    '<div class="bnode">' + slot(id, r) + (label ? '<div class="blab">' + label + '</div>' : '') + '</div>';
-  const grp = (k) =>
-    '<div class="bnode">' + slot('w-' + k, w[k]) +
-    '<div class="bmem">' + g[k].map((r) =>
-      '<div class="bq sm" style="--c:' + r.color + '" title="' + r.name + '"><span class="face"></span></div>'
-    ).join('') + '</div>' +
-    '<div class="blab">GROUP ' + k + '</div></div>';
-  $('bracket-grid').innerHTML =
-    '<div class="btree">' +
-      '<div class="blvl lvl1">' + node('w-CH', w.F, '★ CHAMPION') + '</div>' +
-      '<div class="blvl lvl2"><div class="conn-h"></div>' +
-        node('w-SF1', w.SF1, 'SF 1') + node('w-SF2', w.SF2, 'SF 2') + '</div>' +
-      '<div class="blvl lvl4"><div class="conn-h"></div>' +
-        grp('A') + grp('B') + grp('C') + grp('D') + '</div>' +
+  const ghost = (r) => '<div class="bq" style="--c:' + r.color + '"><span class="face"></span></div>';
+  const wslot = (id, r) =>
+    '<div class="wslotwrap">' +
+      '<div class="bslot' + (r ? ' filled' : '') + '" id="' + id + '">' + (r ? ghost(r) : '<span class="q">?</span>') + '</div>' +
+      (r ? '<div class="bnm">' + r.name + '</div>' : '') +
     '</div>';
+  const grp = (k) => {
+    const wk = w[k];
+    return '<div class="tnode">' + wslot('w-' + k, wk) +
+      '<div class="tmem">' + g[k].map((r) => {
+        const cls = wk ? (r.name === wk.name ? 'win' : 'out') : '';
+        return '<div class="bq sm ' + cls + '" style="--c:' + r.color + '" title="' + r.name + '"><span class="face"></span></div>';
+      }).join('') + '</div>' +
+      '<div class="tlab">GROUP ' + k + '</div></div>';
+  };
+  const sfn = (id, key, label, k1, k2) =>
+    '<div class="tnode">' + wslot(id, w[key]) +
+      '<div class="tlab">' + label + '</div><div class="tline"></div>' +
+      '<div class="tkids"><div class="tkid">' + grp(k1) + '</div>' +
+      '<div class="tkid">' + grp(k2) + '</div></div></div>';
+  $('bracket-grid').innerHTML =
+    '<div class="btree2"><div class="tnode">' + wslot('w-CH', w.F) +
+      '<div class="tlab">★ CHAMPION</div><div class="tline"></div>' +
+      '<div class="tkids"><div class="tkid">' + sfn('w-SF1', 'SF1', 'SEMIFINAL 1', 'A', 'B') + '</div>' +
+      '<div class="tkid">' + sfn('w-SF2', 'SF2', 'SEMIFINAL 2', 'C', 'D') + '</div></div>' +
+    '</div></div>';
+}
+
+/* promosi: karakter pemenang TERBANG NAIK dari arena ke slot bracket atas */
+function promoteWinner(key, winner, done) {
+  const targetId = key === 'F' ? 'w-CH' : 'w-' + key;
+  const target = document.getElementById(targetId);
+  const stage = document.getElementById('track-frame');
+  if (!target || !stage || !winner || !winner.color) { done(); return; }
+  const s = stage.getBoundingClientRect();
+  const t = target.getBoundingClientRect();
+  const gh = document.createElement('div');
+  gh.className = 'fly-ghost';
+  gh.style.setProperty('--c', winner.color);
+  gh.innerHTML = '<span class="face"></span>';
+  gh.style.left = (s.left + s.width / 2 - 23) + 'px';
+  gh.style.top = (s.top + s.height / 2 - 23) + 'px';
+  document.body.appendChild(gh);
+  gh.getBoundingClientRect(); // paksa reflow
+  const dx = (t.left + t.width / 2) - (s.left + s.width / 2);
+  const dy = (t.top + t.height / 2) - (s.top + s.height / 2);
+  gh.style.transform = 'translate(' + dx + 'px,' + dy + 'px) scale(1.1)';
+  setTimeout(() => { gh.remove(); done(); }, 950);
 }
 
 function showStage(which) {
@@ -217,20 +247,22 @@ function playHeat() {
     onDone: (winner) => {
       T.w[h.key] = winner;
       setRaceButtons(false);
-      // bracket selalu terlihat — update langsung di tempat
+      // bracket selalu terlihat — pemenang TERBANG NAIK ke slot atas, baru bracket di-update
       setTimeout(() => {
-        renderBracket();
-        $('round-label').textContent = 'BRACKET';
-        T.heatIdx++;
-        if (T.heatIdx < T.heats.length) {
-          const nx = T.heats[T.heatIdx];
-          const tag = $('next-tag');
-          tag.textContent = 'NEXT: ' + nx.label;
-          tag.classList.remove('hidden');
-          setTimeout(playHeat, 2400);
-        } else {
-          setTimeout(showChampion, 1200);
-        }
+        promoteWinner(h.key, winner, () => {
+          renderBracket();
+          $('round-label').textContent = 'BRACKET';
+          T.heatIdx++;
+          if (T.heatIdx < T.heats.length) {
+            const nx = T.heats[T.heatIdx];
+            const tag = $('next-tag');
+            tag.textContent = 'NEXT: ' + nx.label;
+            tag.classList.remove('hidden');
+            setTimeout(playHeat, 2400);
+          } else {
+            setTimeout(showChampion, 1200);
+          }
+        });
       }, 400);
     },
   });

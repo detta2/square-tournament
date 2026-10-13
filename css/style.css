@@ -61,33 +61,31 @@ body{
   color:var(--ink); margin-bottom:8px; text-shadow:2px 2px 0 rgba(0,0,0,.12);
 }
 #bracket-grid{min-width:560px;}
-.btree{display:flex; flex-direction:column; align-items:center;}
-.blvl{display:flex; gap:22px; position:relative; padding-top:20px;}
-.blvl.lvl1{padding-top:0;}
-.conn-h{position:absolute; top:0; height:20px; border-top:4px solid var(--line); left:40px; right:40px;}
-.bnode{position:relative; width:80px; display:flex; flex-direction:column; align-items:center; gap:4px;}
-.bnode::before{
-  content:''; position:absolute; top:-20px; left:50%; width:4px; height:20px;
-  background:var(--line); transform:translateX(-50%);
-}
-.blvl.lvl1 .bnode::before{display:none;}
-.blvl.lvl1 .bnode::after{
-  content:''; position:absolute; bottom:-20px; left:50%; width:4px; height:20px;
-  background:var(--line); transform:translateX(-50%);
-}
+/* pohon turnamen yg benar: CHAMPION -> SF -> GROUP */
+.btree2{display:flex; justify-content:center; padding:2px 0;}
+.tnode{display:flex; flex-direction:column; align-items:center; min-width:0;}
+.tkids{display:flex; width:100%; position:relative;}
+.tkid{flex:1 1 0; display:flex; flex-direction:column; align-items:center; position:relative; padding-top:24px; min-width:0;}
+.tkids::before{content:''; position:absolute; top:0; left:25%; right:25%; height:4px; background:var(--line);}
+.tkid::before{content:''; position:absolute; top:0; left:50%; width:4px; height:24px; background:var(--line); transform:translateX(-50%);}
+.tline{width:4px; height:20px; background:var(--line);}
+.tlab{font-family:'Press Start 2P',monospace; font-size:7px; color:#6b5c42; letter-spacing:1px; margin-top:4px; text-align:center; white-space:nowrap;}
+.tmem{display:flex; gap:4px; margin-top:6px;}
+.wslotwrap{display:flex; flex-direction:column; align-items:center;}
 .bslot{
   width:46px; height:46px; display:flex; align-items:center; justify-content:center;
-  background:#fffdf6; border:3px solid var(--line); border-radius:6px;
+  background:#fffdf6; border:3px solid var(--line); border-radius:8px;
   box-shadow:2px 2px 0 rgba(0,0,0,.2);
   font-family:'Press Start 2P',monospace; font-size:14px; color:#b9a888;
 }
-.blvl.lvl1 .bslot{width:58px; height:58px; border-color:#b8860b; background:#fffbe8;}
+#w-CH{width:62px; height:62px; border-color:#b8860b; background:#fffbe8;}
+#w-CH .bq{width:50px; height:50px;}
+.bslot.filled{border-color:#b8860b; background:#fffbe8; box-shadow:0 0 10px rgba(255,210,31,.7);}
 .bq{
-  width:38px; height:38px; background:var(--c); border:3px solid var(--line); border-radius:5px;
+  width:38px; height:38px; background:var(--c); border:3px solid var(--line); border-radius:6px;
   box-shadow:inset -5px -5px 0 rgba(0,0,0,.22); position:relative;
   animation:winPop .5s cubic-bezier(.2,2.4,.4,1);
 }
-.blvl.lvl1 .bq{width:48px; height:48px;}
 .bq .face::before, .bq .face::after{
   content:''; position:absolute; top:28%; width:22%; height:26%;
   background:#fff; border:2px solid #1c1c22; border-radius:2px;
@@ -95,9 +93,7 @@ body{
 .bq .face::before{left:20%;} .bq .face::after{right:20%;}
 .bq.sm{width:18px; height:18px; border-width:2px; border-radius:3px; animation:none;}
 .bq.sm .face::before, .bq.sm .face::after{border-width:1px;}
-.bnm{font-family:'Press Start 2P',monospace; font-size:8px; color:var(--ink);}
-.blab{font-family:'Press Start 2P',monospace; font-size:7px; color:#6b5c42; letter-spacing:1px; text-align:center;}
-.bmem{display:flex; gap:4px;}
+.bnm{font-family:'Press Start 2P',monospace; font-size:8px; color:var(--ink); margin-top:3px;}
 @keyframes winPop{from{transform:scale(.3) rotate(-8deg); opacity:0;}to{transform:scale(1) rotate(0); opacity:1;}}
 #next-tag{
   display:inline-block; font-family:'Press Start 2P',monospace; font-size:11px; color:#0d0a18;
@@ -172,9 +168,26 @@ body{
 @media (max-width:900px){
   #banner-main{font-size:28px;}
   #hud{flex-wrap:wrap;}
-  .bnode{width:64px;}
-  .conn-h{left:32px; right:32px;}
 }
+
+/* ---------- BRACKET: animasi promosi pemenang ---------- */
+.fly-ghost{
+  position:fixed; z-index:60; width:46px; height:46px; margin:0;
+  background:var(--c); border:3px solid var(--line); border-radius:6px;
+  box-shadow:inset -5px -5px 0 rgba(0,0,0,.22), 0 0 18px rgba(255,210,31,.85);
+  transition:transform .9s cubic-bezier(.3,.7,.3,1), opacity .9s;
+  pointer-events:none;
+}
+.fly-ghost .face::before, .fly-ghost .face::after{
+  content:''; position:absolute; top:28%; width:22%; height:26%;
+  background:#fff; border:2px solid #1c1c22; border-radius:2px;
+}
+.fly-ghost .face::before{left:20%;} .fly-ghost .face::after{right:20%;}
+/* slot pemenang yg sudah terisi: emas menyala */
+.bslot.filled{border-color:#b8860b; background:#fffbe8; box-shadow:0 0 10px rgba(255,210,31,.7);}
+/* anggota grup: tandai yg menang vs yg gugur */
+.bq.sm.win{outline:3px solid #ffd21f; outline-offset:1px;}
+.bq.sm.out{filter:grayscale(.85); opacity:.4;}
 
 /* ---------- REKAM VIDEO ---------- */
 #btn-rec.armed{background:#b91c1c;}
